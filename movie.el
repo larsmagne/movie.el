@@ -1,7 +1,7 @@
 ;;; movie.el --- playing movies
-;; Copyright (C) 2004 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2011 Lars Magne Ingebrigtsen
 
-;; Author: Lars Magne Ingebrigtsen <lmi@gnus.org>
+;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: extensions, processes
 
 ;; This file is not part of GNU Emacs.
