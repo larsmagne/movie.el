@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+# This script plays the nth VOB of significant size.  This means that
+# "vc" (without any parameters) will typically play the movie, and
+# "vc 2" will play the first bonus portion, and so on.
+
+$num = $ARGV[0];
+
+$num = 1 unless $num;
+
+open(LS, "lsdvd -Op|") || die;
+
+$i = 1;
+
+while (<LS>) {
+    $ix = $1 if (/ix => ([0-9]+)/);
+    $size = $1 if (/length => ([0-9]+)/);
+    next unless ($size > 1000);
+    next unless /length =>/;
+    if ($num == $i) {
+	printf("Starting $ix\n");
+	system("mplayer -framedrop -vo xv -fs -quiet -softvol -ao alsa:device=hw=0.0 -heartbeat-cmd /home/larsi/bin/xscreensave-off dvd://$ix");
+    }
+    $i++;
+}
+
