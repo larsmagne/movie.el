@@ -152,6 +152,7 @@
   (define-key movie-mode-map "t" 'movie-find-torrent)
   (define-key movie-mode-map "s" 'movie-toggle-sort)
   (define-key movie-mode-map "r" 'movie-rename)
+  (define-key movie-mode-map "-" 'movie-collapse)
   (define-key movie-mode-map "." 'end-of-buffer)
   (define-key movie-mode-map "," 'beginning-of-buffer)
   (define-key movie-mode-map "}" 'scroll-down-command)
@@ -263,6 +264,36 @@
   "Rename the current movie."
   (interactive "FNew name: ")
   (rename-file (movie-current-file) to))
+
+(defun movie-collapse ()
+  "Move all files matching a prefix to the same directory."
+  (interactive)
+  (let* ((prefix
+	  (read-string "Prefix to collapse: "
+		       (movie-prefix (file-name-nondirectory
+				      (movie-current-file)))))
+	 (dir (expand-file-name prefix default-directory)))
+    (unless (file-exists-p dir)
+      (make-directory dir))
+    (dolist (file (directory-files default-directory t))
+      (when (and (not (file-directory-p file))
+		 (string-equal
+		  (downcase (or (movie-prefix (file-name-nondirectory file))
+				""))
+		  (downcase prefix)))
+	(rename-file file dir)))))
+
+(defun movie-prefix (file)
+  (let ((prefix ""))
+    (dolist (part (split-string file "[.]"))
+      (if (string-match "[0-9]" part)
+	  (return prefix)
+	(setq prefix
+	      (concat
+	       prefix
+	       (if (zerop (length prefix))
+		   part
+		 (concat "." part))))))))
 
 (defun movie-play-svideo (file)
   "Play a file."
