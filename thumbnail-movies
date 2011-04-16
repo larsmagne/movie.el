@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use File::Find;
+
+sub Wanted {
+    my $file = $File::Find::name;
+    my $dir = $File::Find::dir;
+    if ($file =~ /\.(mkv|mpeg|mpg|avi|wmv|mp4|xvid|mov|rmvb|divx)$/i) {
+	($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+	 $atime, $mtime, $ctime, $blksize, $blocks) = stat($filename);
+	if (-f $file &&
+	    ! -e "$file.png" &&
+	    $mtime + 60 < time()) {
+	    print "$file\n";
+	    system("mplayer", "-vo", "png",
+		   "-sstep", "10",
+		   "-frames", "3",
+		   "$file");
+	    system("convert", "-scale", "150x",
+		   "$dir/00000003.png", "$file.png");
+	    unlink("$dir/00000003.png");
+	    unlink("$dir/00000002.png");
+	    unlink("$dir/00000001.png");
+	}
+    }
+}
+
+find(\&Wanted, "/tv");
