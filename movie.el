@@ -295,20 +295,6 @@
 		   part
 		 (concat "." part))))))))
 
-(defun movie-play-svideo (file)
-  "Play a file."
-  (interactive (list (movie-current-file)))
-  (let ((process (start-process "pvplay"
-				(get-buffer-create "*pvplay*")
-				"/usr/local/src/pvr350player_1.0/pvr350player" file))
-	(command nil))
-    (unwind-protect
-	(while (not (equal command ?q))
-	  (setq command (read-char ""))
-	  (process-send-string process (format "%c" command)))
-      (ignore-errors
-	(delete-process process)))))
-
 (defun movie-play-dvd (number)
   "Play the DVD."
   (interactive "p")
