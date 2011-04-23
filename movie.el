@@ -325,13 +325,6 @@
     (goto-char (point-min))
     (movie-channel-mode 1)))
 
-(defvar movie-channel-mode-map nil)
-(unless movie-channel-mode-map
-  (setq movie-channel-mode-map (make-sparse-keymap))
-  (suppress-keymap movie-channel-mode-map)
-  (define-key movie-channel-mode-map "\r" 'movie-channel-play)
-  (define-key movie-channel-mode-map "q" 'bury-buffer))
-
 (defvar movie-channel-process nil)
 
 (defun movie-channel-kill ()
@@ -366,6 +359,13 @@
   (call-process "emacsclient" nil t nil
 		"--server-file=potato" 
 		"--eval" command))
+
+(defvar movie-channel-mode-map nil)
+(unless movie-channel-mode-map
+  (setq movie-channel-mode-map (make-sparse-keymap))
+  (suppress-keymap movie-channel-mode-map)
+  (define-key movie-channel-mode-map "\r" 'movie-channel-play)
+  (define-key movie-channel-mode-map "q" 'bury-buffer))
 
 (defvar movie-channel-mode nil
   "Mode for Movie Channel buffers.")
