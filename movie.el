@@ -41,7 +41,9 @@
     "-vo" "xv" "-fs" "-quiet" "-softvol"
     "-ao" "alsa:device=hw=1.7"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
-    "-delay" "-0.1")
+    "-delay" "-0.1"
+    ;; Pause at the end of files.
+    "-loop" "0")
   "Command to play a file.")
 
 (defvar movie-crop '("-vf" "crop=700:420")
