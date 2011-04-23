@@ -25,6 +25,7 @@
 
 ;;; Code:
 
+(require 'pvr)
 (load "time-date.el")
 
 (defvar movie-order nil)
@@ -152,6 +153,7 @@
   (define-key movie-mode-map "t" 'movie-find-torrent)
   (define-key movie-mode-map "s" 'movie-toggle-sort)
   (define-key movie-mode-map "r" 'movie-rename)
+  (define-key movie-mode-map "l" 'movie-list-channels)
   (define-key movie-mode-map "-" 'movie-collapse)
   (define-key movie-mode-map "." 'end-of-buffer)
   (define-key movie-mode-map "," 'beginning-of-buffer)
@@ -309,5 +311,74 @@
 	   nil
 	   (append (cdr movie-player)
 		   (list (format "dvd://%d" number))))))
+
+(defun movie-list-channels ()
+  "List channels that can be viewed."
+  (interactive)
+  (let ((channels (pvr-read-channel-file)))
+    (switch-to-buffer "*channels*")
+    (erase-buffer)
+    (dolist (spec channels)
+      (insert (car spec) "\n"))
+    (goto-char (point-min))
+    (movie-channel-mode 1)))
+
+(defvar movie-channel-mode-map nil)
+(unless movie-channel-mode-map
+  (setq movie-channel-mode-map (make-sparse-keymap))
+  (suppress-keymap movie-channel-mode-map)
+  (define-key movie-channel-mode-map "\r" 'movie-channel-play)
+  (define-key movie-channel-mode-map "q" 'bury-buffer))
+
+(defvar movie-channel-process nil)
+
+(defun movie-channel-kill ()
+  (when (and movie-channel-process
+	     (memq (process-status movie-channel-process)
+		   '(open run)))
+    (delete-process movie-channel-process)))
+
+(defun movie-channel-play ()
+  "Play the channel under point."
+  (interactive)
+  (movie-channel-kill)
+  (let ((channel (buffer-substring (line-beginning-position)
+				   (line-end-position)))
+	device)
+    (with-temp-buffer
+      (movie-emacsclient (format "(pvr-choose-channel %S)" channel))
+      (goto-char (point-min))
+      (when (re-search-forward "/dev/video\\([0-9]+\\)" nil t)
+	(setq device (string-to-number (match-string 1)))))
+    (when device
+      (setq movie-channel-process
+	    (start-process "cat" nil "bash" "-c"
+			   (format "nc potato %d > /tv/live" (+ 8040 device))))
+      (while (not (file-exists-p "/tv/live"))
+	(sleep-for 0.1))
+      (movie-play-1 (append movie-player movie-crop
+			    (list "-loop" "0" "/tv/live")))
+      (movie-channel-kill))))
+
+(defun movie-emacsclient (command)
+  (call-process "emacsclient" nil t nil
+		"--server-file=potato" 
+		"--eval" command))
+
+(defvar movie-channel-mode nil
+  "Mode for Movie Channel buffers.")
+
+(defun movie-channel-mode (&optional arg)
+  "Mode for Movie Channel mode buffers.
+
+\\{movie-mode-map}"
+  (interactive (list current-prefix-arg))
+  (make-local-variable 'movie-channel-mode)
+  (setq movie-channel-mode
+	(if (null arg) (not movie-channel-mode)
+	  (> (prefix-numeric-value arg) 0)))
+  (setq major-mode 'movie-channel-mode)
+  (setq mode-name "Channel")
+  (use-local-map movie-channel-mode-map))
 
 ;;; movie.el ends here
