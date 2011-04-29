@@ -119,7 +119,11 @@
 
 (defun movie-limit (match)
   "Limit the buffer to matching files."
-  (interactive "sMatch: ")
+  (interactive
+   (list
+    (read-string "Match: "
+		 (movie-prefix (file-name-nondirectory
+				(movie-current-file))))))
   (setq movie-limit match)
   (movie-browse default-directory movie-order))
 
