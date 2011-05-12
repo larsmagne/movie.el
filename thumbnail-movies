@@ -7,8 +7,9 @@ sub Wanted {
     my $dir = $File::Find::dir;
     if ($file =~ /\.(mkv|mpeg|mpg|avi|wmv|mp4|xvid|mov|rmvb|divx)$/i) {
 	($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
-	 $atime, $mtime, $ctime, $blksize, $blocks) = stat($filename);
+	 $atime, $mtime, $ctime, $blksize, $blocks) = stat($file);
 	if (-f $file &&
+	    $size > 0 &&
 	    ! -e "$file.png" &&
 	    $mtime + 60 < time()) {
 	    print "$file\n";
