@@ -50,7 +50,7 @@
   "Parameters to crop a 4:3 aspect ratio program.")
 
 (defvar movie-high-volume
-  '("-af" "volume=15")
+  '("-af" "volume=15:1")
   "Parameters to boost the volume.")
 
 (defvar movie-aplayer
