@@ -38,8 +38,10 @@
   '("mplayer"
     "-framedrop" "-hardframedrop"
     "-volume" "2"
-    "-vo" "xv" "-fs" "-quiet" "-softvol"
-    "-ao" "alsa:device=hw=1.7"
+    "-vo" "gl2:yuv=0"
+    ;;"-vo" "xv"
+    "-fs" "-quiet" "-softvol"
+    "-ao" "alsa:device=hw=0.7"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
     ;; Pause at the end of files.
@@ -263,10 +265,14 @@
 (defun movie-toggle-sort ()
   "Toggle sorting by time."
   (interactive)
-  (if (eq movie-order 'alphabetical)
-      (setq movie-order 'chronological)
-    (setq movie-order 'alphabetical))
-  (movie-rescan movie-order))
+  (let ((current (movie-current-file)))
+    (if (eq movie-order 'alphabetical)
+	(setq movie-order 'chronological)
+      (setq movie-order 'alphabetical))
+    (movie-rescan movie-order)
+    (goto-char (point-min))
+    (search-forward current nil t)
+    (beginning-of-line)))
 
 (defun movie-rename (to)
   "Rename the current movie."
