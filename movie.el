@@ -152,7 +152,9 @@
   (define-key movie-mode-map [backspace] 'movie-delete-file)
   (define-key movie-mode-map [deletechar] 'movie-delete-file)
   (define-key movie-mode-map "d" 'movie-play-dvd)
+  (define-key movie-mode-map "D" 'movie-play-whole-dvd)
   (define-key movie-mode-map "q" 'bury-buffer)
+  (define-key movie-mode-map "e" 'movie-eject)
   (define-key movie-mode-map "k" 'movie-browse)
   (define-key movie-mode-map "c" 'movie-play-cropped)
   (define-key movie-mode-map "h" 'movie-play-high-volume)
@@ -271,7 +273,7 @@
       (setq movie-order 'alphabetical))
     (movie-rescan movie-order)
     (goto-char (point-min))
-    (search-forward current nil t)
+    (search-forward (file-name-nondirectory current) nil t)
     (beginning-of-line)))
 
 (defun movie-rename (to)
@@ -323,6 +325,17 @@
 	   nil
 	   (append (cdr movie-player)
 		   (list (format "dvd://%d" number))))))
+
+(defun movie-play-whole-dvd (number)
+  "Play the DVD."
+  (interactive "p")
+  (apply 'call-process
+	 (car movie-player)
+	 nil
+	 (get-buffer-create "*mplayer*")
+	 nil
+	 (append (cdr movie-player)
+		 (list (format "dvd://%d" number)))))
 
 (defun movie-list-channels ()
   "List channels that can be viewed."
@@ -392,5 +405,45 @@
   (setq major-mode 'movie-channel-mode)
   (setq mode-name "Channel")
   (use-local-map movie-channel-mode-map))
+
+(defun movie-eject ()
+  "Eject the cd."
+  (interactive)
+  (call-process "eject" nil nil nil "/dev/dvd"))
+
+(defun movie-start-server ()
+  (setq server-use-tcp t
+	server-host (system-name)
+	server-name "quimbies-mov")
+  (server-start))
+
+(defun movie-play-youtube (url)
+  (let* ((default-directory "/tmp/")
+	 (file "/tmp/youtube.flv")
+	 (tmp (concat file ".part"))
+	 (sleeps 40))
+    (when (file-exists-p tmp)
+      (delete-file tmp))
+    (let ((process (start-process
+		    "youtube" (get-buffer-create "*youtube*")
+		    "youtube-dl"
+		    "-q"
+		    "-o" file
+		    url)))
+      (while (and (not (file-exists-p tmp))
+		  (> (decf sleeps) 0))
+	(sleep-for 0 100))
+      (if (not (file-exists-p tmp))
+	  (set-process-sentinel process 'movie-youtube-sentinel)
+	(while (and (< (nth 7 (file-attributes tmp))
+		       100000)
+		    (> (decf sleeps) 0))
+	  (sleep-for 0 100))
+	(movie-play tmp)
+	(delete-process process)))))
+
+(defun movie-youtube-sentinel (process status)
+  (when (equal status "finished\n")
+    (movie-play "/tmp/youtube.flv")))
 
 ;;; movie.el ends here
