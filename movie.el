@@ -155,7 +155,8 @@
   (define-key movie-mode-map [deletechar] 'movie-delete-file)
   (define-key movie-mode-map "d" 'movie-play-dvd)
   (define-key movie-mode-map "D" 'movie-play-whole-dvd)
-  (define-key movie-mode-map "n" 'movie-play-next-vob)
+  (define-key movie-mode-map "f" 'movie-play-next-vob)
+  (define-key movie-mode-map "F" 'movie-play-current-vob)
   (define-key movie-mode-map "q" 'bury-buffer)
   (define-key movie-mode-map "e" 'movie-eject)
   (define-key movie-mode-map "k" 'movie-browse)
@@ -339,12 +340,39 @@
 		 (concat "." part))))))))
 
 (defun movie-play-dvd (number)
-  "Play the DVD."
+  "Play 'large' VOB NUMBER from the DVD."
   (interactive "p")
   (let ((data (movie-dvd-data)))
     (if (> number (length (cadr data)))
 	(message "Just %d big files" (length (cadr data)))
       (movie-play-dvd-vob data number))))
+
+(defun movie-play-next-vob ()
+  "Play the next 'large' VOB on the DVD."
+  (interactive)
+  (let* ((data (movie-dvd-data))
+	 (number (movie-find-previous-vob data)))
+    (if (not number)
+	(message "No previous VOBs for %s" (car data))
+      (movie-play-dvd (1+ number)))))
+
+(defun movie-play-current-vob ()
+  "Play current 'large' VOB on the DVD."
+  (interactive)
+  (let* ((data (movie-dvd-data))
+	 (number (movie-find-previous-vob data)))
+    (if (not number)
+	(message "No previous VOBs for %s" (car data))
+      (movie-play-dvd number))))
+
+(defun movie-find-previous-vob (data)
+  (with-temp-buffer
+    (insert-file-contents "~/.mplayer.positions")
+    (goto-char (point-max))
+    (when (re-search-backward (format " %s#[0-9]+#\\([0-9]+\\)\n"
+				      (regexp-quote (car data)))
+			      nil t)
+      (string-to-number (match-string 1)))))
 
 (defun movie-play-dvd-vob (data number)
   ;; DVD VOBs don't have natural "file names", so create a file ID
