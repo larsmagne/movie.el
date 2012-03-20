@@ -228,22 +228,24 @@
   (movie-play-1 (append movie-player (list file))))
 
 (defun movie-find-position (file)
-  (when (file-exists-p "~/.mplayer.positions")
+  (when (and (file-exists-p "~/.mplayer.positions")
+	     (string-match "^/tv" file))
     (with-temp-buffer
       (insert-file-contents "~/.mplayer.positions")
       (goto-char (point-max))
-      (when (search-backward (concat " " file "\n") nil t)
+      (when (search-backward
+	     (concat " " (file-name-nondirectory file) "\n") nil t)
 	(beginning-of-line)
 	(and (looking-at "[0-9]+")
 	     ;; Skip backwards two seconds to avoid missing a second.
-	     (format "%d" (- (string-to-number (match-string 0)) 2)))))))
+	     (format "%d" (max (- (string-to-number (match-string 0)) 2)
+			       0)))))))
   
 (defun movie-play-1 (player)
   ;; Kill off the glibc malloc checks that would make mplayer hang on
   ;; exit some times (due to double free()s).
   (setenv "MALLOC_CHECK" "0")
-  (let ((skip (movie-find-position
-	       (file-name-nondirectory (car (last player))))))
+  (let ((skip (movie-find-position (car (last player)))))
     (when skip
       (setq player (cons (pop player)
 			 (append (list "-ss" skip)
