@@ -341,31 +341,36 @@
 (defun movie-play-dvd (number)
   "Play the DVD."
   (interactive "p")
-  (let ((index (movie-find-big-file-index number)))
-    (if (not (car index))
-	(message "Just %d big files" (cadr index))
-      ;; DVD VOBs don't have natural "file names", so create a file ID
-      ;; and use that to look up whether we want to skip into it
-      ;; (because we've already seen parts of it)...
-      (let ((movie-file-id (format "/dvd/%s#%d#%d"
-				   (nth 2 index) (car index) number)))
-	(movie-play (format "dvd://%d" (car index)))
-	;; And after playing the movie, update the data from the
-	;; .positions file to be this file ID.
-	(when (file-exists-p "~/.mplayer.positions")
-	  (with-temp-buffer
-	    (insert-file-contents "~/.mplayer.positions")
-	    (goto-char (point-max))
-	    (forward-line -1)
-	    (when (looking-at "[0-9.]+ \\([0-9]+\\)\n")
-	      (goto-char (match-beginning 1))
-	      (delete-region (point) (line-end-position))
-	      (insert (file-name-nondirectory movie-file-id))
-	      (write-region (point-min) (point-max) "~/.mplayer.positions"
-			    nil 'silent))))))))
+  (let ((data (movie-dvd-data)))
+    (if (> number (length (cadr data)))
+	(message "Just %d big files" (length (cadr data)))
+      (movie-play-dvd-vob data number))))
 
-(defun movie-find-big-file-index (number)
-  (let (big-files index title found-index)
+(defun movie-play-dvd-vob (data number)
+  ;; DVD VOBs don't have natural "file names", so create a file ID
+  ;; and use that to look up whether we want to skip into it
+  ;; (because we've already seen parts of it)...
+  (let ((movie-file-id (format "/dvd/%s#%d#%d"
+			       (car data)
+			       (elt (cadr data) (1- number))
+			       number)))
+    (movie-play (format "dvd://%d" (elt (cadr data) (1- number))))
+    ;; And after playing the movie, update the data from the
+    ;; .positions file to be this file ID.
+    (when (file-exists-p "~/.mplayer.positions")
+      (with-temp-buffer
+	(insert-file-contents "~/.mplayer.positions")
+	(goto-char (point-max))
+	(forward-line -1)
+	(when (looking-at "[0-9.]+ \\([0-9]+\\)\n")
+	  (goto-char (match-beginning 1))
+	  (delete-region (point) (line-end-position))
+	  (insert (file-name-nondirectory movie-file-id))
+	  (write-region (point-min) (point-max) "~/.mplayer.positions"
+			nil 'silent))))))
+
+(defun movie-dvd-data ()
+  (let (big-files index title)
     (with-temp-buffer
       (call-process "lsdvd" nil (current-buffer) nil "-Op")
       (goto-char (point-min))
@@ -375,11 +380,8 @@
 	(setq index (string-to-number (match-string 1)))
 	(when (re-search-forward "length => \\([0-9]+\\)" nil t)
 	  (when (> (string-to-number (match-string 1)) 1000)
-	    (push index big-files)))
-	(when (>= (length big-files) number)
-	  (setq found-index index))))
-    (list found-index big-files title)))
-
+	    (push index big-files)))))
+    (list title (nreverse big-files))))
 
 (defun movie-play-whole-dvd (number)
   "Play the DVD."
