@@ -59,6 +59,8 @@
   '("mplayer" "-fs" "-monitoraspect" "4:3" "-softvol")
   "Player alternative for 4:3 monitors.")
 
+(defvar movie-file-id nil)
+
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
   (interactive "DDirectory: ")
@@ -153,6 +155,7 @@
   (define-key movie-mode-map [deletechar] 'movie-delete-file)
   (define-key movie-mode-map "d" 'movie-play-dvd)
   (define-key movie-mode-map "D" 'movie-play-whole-dvd)
+  (define-key movie-mode-map "n" 'movie-play-next-vob)
   (define-key movie-mode-map "q" 'bury-buffer)
   (define-key movie-mode-map "e" 'movie-eject)
   (define-key movie-mode-map "k" 'movie-browse)
@@ -229,7 +232,7 @@
 
 (defun movie-find-position (file)
   (when (and (file-exists-p "~/.mplayer.positions")
-	     (string-match "^/tv" file))
+	     (string-match "^/tv\\|^/dvd" file))
     (with-temp-buffer
       (insert-file-contents "~/.mplayer.positions")
       (goto-char (point-max))
@@ -245,7 +248,9 @@
   ;; Kill off the glibc malloc checks that would make mplayer hang on
   ;; exit some times (due to double free()s).
   (setenv "MALLOC_CHECK" "0")
-  (let ((skip (movie-find-position (car (last player)))))
+  (let ((skip (movie-find-position
+	       (or movie-file-id
+		   (car (last player))))))
     (when skip
       (setq player (cons (pop player)
 			 (append (list "-ss" skip)
@@ -336,28 +341,50 @@
 (defun movie-play-dvd (number)
   "Play the DVD."
   (interactive "p")
-  (if t
-      (call-process "/home/larsi/src/movie.el/vc"
-		    nil (get-buffer-create "*mplayer*") nil
-		    (format "%d" number))
-    (apply 'call-process
-	   (car movie-player)
-	   nil
-	   (get-buffer-create "*mplayer*")
-	   nil
-	   (append (cdr movie-player)
-		   (list (format "dvd://%d" number))))))
+  (let ((index (movie-find-big-file-index number)))
+    (if (not (car index))
+	(message "Just %d big files" (cadr index))
+      ;; DVD VOBs don't have natural "file names", so create a file ID
+      ;; and use that to look up whether we want to skip into it
+      ;; (because we've already seen parts of it)...
+      (let ((movie-file-id (format "/dvd/%s#%d#%d"
+				   (nth 2 index) (car index) number)))
+	(movie-play (format "dvd://%d" (car index)))
+	;; And after playing the movie, update the data from the
+	;; .positions file to be this file ID.
+	(when (file-exists-p "~/.mplayer.positions")
+	  (with-temp-buffer
+	    (insert-file-contents "~/.mplayer.positions")
+	    (goto-char (point-max))
+	    (forward-line -1)
+	    (when (looking-at "[0-9.]+ \\([0-9]+\\)\n")
+	      (goto-char (match-beginning 1))
+	      (delete-region (point) (line-end-position))
+	      (insert (file-name-nondirectory movie-file-id))
+	      (write-region (point-min) (point-max) "~/.mplayer.positions"
+			    nil 'silent))))))))
+
+(defun movie-find-big-file-index (number)
+  (let (big-files index title found-index)
+    (with-temp-buffer
+      (call-process "lsdvd" nil (current-buffer) nil "-Op")
+      (goto-char (point-min))
+      (when (re-search-forward "title => '\\(.*\\)'" nil t)
+	(setq title (match-string 1)))
+      (while (re-search-forward "ix => \\([0-9]+\\)" nil t)
+	(setq index (string-to-number (match-string 1)))
+	(when (re-search-forward "length => \\([0-9]+\\)" nil t)
+	  (when (> (string-to-number (match-string 1)) 1000)
+	    (push index big-files)))
+	(when (>= (length big-files) number)
+	  (setq found-index index))))
+    (list found-index big-files title)))
+
 
 (defun movie-play-whole-dvd (number)
   "Play the DVD."
   (interactive "p")
-  (apply 'call-process
-	 (car movie-player)
-	 nil
-	 (get-buffer-create "*mplayer*")
-	 nil
-	 (append (cdr movie-player)
-		 (list (format "dvd://%d" number)))))
+  (movie-play (format "dvd://%d" number)))
 
 (defun movie-list-channels ()
   "List channels that can be viewed."
