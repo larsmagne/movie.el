@@ -39,8 +39,8 @@
     "-framedrop" "-hardframedrop"
     "-volume" "2"
     "-vo" "gl2:yuv=0"
-    ;;"-vo" "xv"
-    "-fs" "-quiet" "-softvol"
+    "-fs" "-quiet"
+    "-softvol" "-softvol-max" "200"
     "-ao" "alsa:device=hw=0.7"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
@@ -157,6 +157,7 @@
   (define-key movie-mode-map "D" 'movie-play-whole-dvd)
   (define-key movie-mode-map "f" 'movie-play-next-vob)
   (define-key movie-mode-map "F" 'movie-play-current-vob)
+  (define-key movie-mode-map "T" 'movie-thumbnails)
   (define-key movie-mode-map "q" 'bury-buffer)
   (define-key movie-mode-map "e" 'movie-eject)
   (define-key movie-mode-map "k" 'movie-browse)
@@ -484,6 +485,11 @@
   (setq major-mode 'movie-channel-mode)
   (setq mode-name "Channel")
   (use-local-map movie-channel-mode-map))
+
+(defun movie-thumbnails ()
+  "Create missing thumbnails."
+  (interactive)
+  (call-process "~/src/movie.el/thumbnail-movies"))
 
 (defun movie-eject ()
   "Eject the cd."
