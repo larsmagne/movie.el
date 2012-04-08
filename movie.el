@@ -162,6 +162,7 @@
   (define-key movie-mode-map "e" 'movie-eject)
   (define-key movie-mode-map "k" 'movie-browse)
   (define-key movie-mode-map "c" 'movie-play-cropped)
+  (define-key movie-mode-map "x" 'movie-prefixed-action)
   (define-key movie-mode-map "h" 'movie-play-high-volume)
   (define-key movie-mode-map "a" 'movie-aplay)
   (define-key movie-mode-map "g" 'movie-rescan)
@@ -220,6 +221,35 @@
   (interactive (list (movie-current-file)))
   (movie-play-1 (append movie-player movie-crop (list file))))
 
+(defun movie-prefixed-action ()
+  (interactive)
+  (let ((options nil)
+	(command nil))
+    (while (let ((char (read-char "")))
+	     (cond
+	      ((eq char ?c)
+	       (setq options
+		     (movie-add-vf options "crop=700:420")))
+	      ((eq char ?i)
+	       (setq options (movie-add-vf
+			      options "pp=lb")))
+	      ((eq char ?x)
+	       (setq options (append options (list "-vo" "xv"))))
+	      (t
+	       (setq command
+		     (lookup-key movie-mode-map (format "%c" char)))
+	       nil))))
+    (let ((movie-player (append movie-player options)))
+      (call-interactively command))))
+
+(defun movie-add-vf (options vf)
+  (let ((old (member "-vf" options)))
+    (if (not old)
+	(append options (list "-vf" vf))
+      (setcar (cdr old)
+	      (concat (cadr old) "," vf))
+      options)))
+
 (defun movie-play-high-volume (file)
   (interactive (list (movie-current-file)))
   (movie-play-1 (append movie-player movie-high-volume (list file))))
@@ -234,7 +264,8 @@
 
 (defun movie-find-position (file)
   (when (and (file-exists-p "~/.mplayer.positions")
-	     (string-match "^/tv\\|^/dvd" file))
+	     (string-match "^/tv\\|^/dvd" file)
+	     (not (equal file "/tv/live")))
     (with-temp-buffer
       (insert-file-contents "~/.mplayer.positions")
       (goto-char (point-max))
@@ -408,7 +439,7 @@
       (while (re-search-forward "ix => \\([0-9]+\\)" nil t)
 	(setq index (string-to-number (match-string 1)))
 	(when (re-search-forward "length => \\([0-9]+\\)" nil t)
-	  (when (> (string-to-number (match-string 1)) 1000)
+	  (when (> (string-to-number (match-string 1)) 500)
 	    (push index big-files)))))
     (list title (nreverse big-files))))
 
