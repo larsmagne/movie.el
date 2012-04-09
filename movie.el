@@ -531,4 +531,5 @@
   (when (equal status "finished\n")
     (movie-play "/tmp/youtube.flv")))
 
+(provide 'movie)
 ;;; movie.el ends here
