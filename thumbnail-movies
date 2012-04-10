@@ -26,4 +26,4 @@ sub Wanted {
     }
 }
 
-find(\&Wanted, "/tv");
+find(\&Wanted, "/tv/");
