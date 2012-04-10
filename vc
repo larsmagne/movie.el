@@ -19,7 +19,7 @@ while (<LS>) {
     next unless /length =>/;
     if ($num == $i) {
 	printf("Starting $ix\n");
-	system("mplayer -framedrop -vo xv -fs -quiet -softvol -ao alsa:device=hw=0.0 -heartbeat-cmd /home/larsi/bin/xscreensave-off dvd://$ix");
+	system("mplayer -framedrop -vo gl2:yuv=0 -fs -quiet -softvol -ao alsa:device=hw=0.7 -heartbeat-cmd /home/larsi/src/movie.el/xscreensave-off -volume 2 dvd://$ix");
     }
     $i++;
 }
