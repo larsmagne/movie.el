@@ -38,10 +38,10 @@
   '("mplayer"
     "-framedrop" "-hardframedrop"
     "-volume" "2"
-    "-vo" "gl2:yuv=0"
+    "-vo" "xv"
     "-fs" "-quiet"
     "-softvol" "-softvol-max" "200"
-    "-ao" "alsa:device=hw=0.7"
+    "-ao" "alsa:device=hw=2.7"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
     ;; Pause at the end of files.
