@@ -266,9 +266,8 @@
 
 (defun movie-find-position (file)
   (when (and (file-exists-p "~/.mplayer.positions")
-	     (string-match "^/tv\\|^/dvd" file)
-	     (not (equal file "/tv/live"))
-	     (not (string-match "youtube.flv" file)))
+	     (string-match "^/tv\\|^/dvd\\|http:" file)
+	     (not (equal file "/tv/live")))
     (with-temp-buffer
       (insert-file-contents "~/.mplayer.positions")
       (goto-char (point-max))
@@ -543,31 +542,16 @@
 	server-name "quimbies-mov")
   (server-start))
 
+(defun movie-direct-url (url)
+  (with-temp-buffer
+    (call-process "youtube-dl" nil (current-buffer) nil "-g"
+		  url)
+    (goto-char (point-min))
+    (buffer-substring (point) (line-end-position))))
+    
 (defun movie-play-youtube (url)
-  (let* ((default-directory "/tmp/")
-	 (file "/tmp/youtube.flv")
-	 (tmp (concat file ".part"))
-	 (sleeps 400))
-    (message "Downloading youtube...")
-    (when (file-exists-p tmp)
-      (delete-file tmp))
-    (let ((process (start-process
-		    "youtube" (get-buffer-create "*youtube*")
-		    "youtube-dl"
-		    "-q"
-		    "-r" "440m"
-		    "-o" file
-		    url)))
-      (when nil
-	(while (process-live-p process)
-	  (sleep-for 0 100))
-	(message "Playing")
-	(movie-play file)
-	(delete-process process)))))
-
-(defun movie-youtube-sentinel (process status)
-  (when (equal status "finished\n")
-    (movie-play "/tmp/youtube.flv")))
+  (movie-play (movie-direct-url url)))
 
 (provide 'movie)
+
 ;;; movie.el ends here
