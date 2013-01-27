@@ -30,6 +30,7 @@
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
+(defvar movie-dvdnav-p nil)
 
 (defvar movie-files "." ;"\\.\\(mpg\\|avi\\|wmv\\|ogm\\|rm\\|mpeg\\)$"
   "Regexp to match movie files.")
@@ -226,7 +227,8 @@
 (defun movie-prefixed-action ()
   (interactive)
   (let ((options nil)
-	(command nil))
+	(command nil)
+	(movie-dvdnav-p nil))
     (while (let ((char (read-char "")))
 	     (cond
 	      ((eq char ?c)
@@ -237,6 +239,8 @@
 			      options "pp=lb")))
 	      ((eq char ?x)
 	       (setq options (append options (list "-vo" "xv"))))
+	      ((eq char ?n)
+	       (setq movie-dndnav-p t))
 	      (t
 	       (setq command
 		     (lookup-key movie-mode-map (format "%c" char)))
@@ -290,6 +294,11 @@
       (setq player (cons (pop player)
 			 (append (list "-ss" skip)
 				 player)))))
+  ;; The prefix command has been used to switch on libdvdnav playing.
+  (when movie-dvdnav-p
+    (let ((file (last mplayer)))
+      (when (string-match "^dvd:" (car file))
+	(setcar file (concat "dvdnav:" (substring (car file) 4))))))
   (apply 'call-process (car player) nil
 	 (get-buffer-create "*mplayer*")
 	 nil (cdr player)))
@@ -418,7 +427,7 @@
 			       (car data)
 			       (elt (cadr data) (1- number))
 			       number)))
-    (movie-play (format "dvdnav://%d" (elt (cadr data) (1- number))))
+    (movie-play (format "dvd://%d" (elt (cadr data) (1- number))))
     ;; And after playing the movie, update the data from the
     ;; .positions file to be this file ID.
     (when (file-exists-p "~/.mplayer.positions")
@@ -450,7 +459,7 @@
 (defun movie-play-whole-dvd (number)
   "Play the DVD."
   (interactive "p")
-  (movie-play (format "dvdnav://%d" number)))
+  (movie-play (format "dvd://%d" number)))
 
 (defun movie-play-vlc-dvd (number)
   "Play the DVD."
