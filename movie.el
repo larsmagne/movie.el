@@ -40,12 +40,13 @@
     "-volume" "2"
     "-vo" "xv"
     "-fs" "-quiet"
-    "-softvol" "-softvol-max" "200"
+    "-softvol"
     "-ao" "alsa:device=hw=2.7"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
     ;; Pause at the end of files.
-    "-loop" "0")
+    "-loop" "0"
+    )
   "Command to play a file.")
 
 (defvar movie-crop '("-vf" "crop=700:420")
@@ -155,6 +156,7 @@
   (define-key movie-mode-map [deletechar] 'movie-delete-file)
   (define-key movie-mode-map "d" 'movie-play-dvd)
   (define-key movie-mode-map "D" 'movie-play-whole-dvd)
+  (define-key movie-mode-map "V" 'movie-play-vlc-dvd)
   (define-key movie-mode-map "f" 'movie-play-next-vob)
   (define-key movie-mode-map "F" 'movie-play-current-vob)
   (define-key movie-mode-map "T" 'movie-thumbnails)
@@ -265,7 +267,8 @@
 (defun movie-find-position (file)
   (when (and (file-exists-p "~/.mplayer.positions")
 	     (string-match "^/tv\\|^/dvd" file)
-	     (not (equal file "/tv/live")))
+	     (not (equal file "/tv/live"))
+	     (not (string-match "youtube.flv" file)))
     (with-temp-buffer
       (insert-file-contents "~/.mplayer.positions")
       (goto-char (point-max))
@@ -332,9 +335,11 @@
 	(setq movie-order 'chronological)
       (setq movie-order 'alphabetical))
     (movie-rescan movie-order)
-    (goto-char (point-min))
-    (search-forward (file-name-nondirectory current) nil t)
-    (beginning-of-line)))
+    (if (not current)
+	(goto-char (point-max))
+      (goto-char (point-min))
+      (search-forward (file-name-nondirectory current) nil t)
+      (beginning-of-line))))
 
 (defun movie-rename (to)
   "Rename the current movie."
@@ -414,7 +419,7 @@
 			       (car data)
 			       (elt (cadr data) (1- number))
 			       number)))
-    (movie-play (format "dvd://%d" (elt (cadr data) (1- number))))
+    (movie-play (format "dvdnav://%d" (elt (cadr data) (1- number))))
     ;; And after playing the movie, update the data from the
     ;; .positions file to be this file ID.
     (when (file-exists-p "~/.mplayer.positions")
@@ -444,6 +449,11 @@
     (list title (nreverse big-files))))
 
 (defun movie-play-whole-dvd (number)
+  "Play the DVD."
+  (interactive "p")
+  (movie-play (format "dvdnav://%d" number)))
+
+(defun movie-play-vlc-dvd (number)
   "Play the DVD."
   (interactive "p")
   (movie-play (format "dvd://%d" number)))
@@ -537,25 +547,22 @@
   (let* ((default-directory "/tmp/")
 	 (file "/tmp/youtube.flv")
 	 (tmp (concat file ".part"))
-	 (sleeps 40))
+	 (sleeps 400))
+    (message "Downloading youtube...")
     (when (file-exists-p tmp)
       (delete-file tmp))
     (let ((process (start-process
 		    "youtube" (get-buffer-create "*youtube*")
 		    "youtube-dl"
 		    "-q"
+		    "-r" "440m"
 		    "-o" file
 		    url)))
-      (while (and (not (file-exists-p tmp))
-		  (> (decf sleeps) 0))
-	(sleep-for 0 100))
-      (if (not (file-exists-p tmp))
-	  (set-process-sentinel process 'movie-youtube-sentinel)
-	(while (and (< (nth 7 (file-attributes tmp))
-		       100000)
-		    (> (decf sleeps) 0))
+      (when nil
+	(while (process-live-p process)
 	  (sleep-for 0 100))
-	(movie-play tmp)
+	(message "Playing")
+	(movie-play file)
 	(delete-process process)))))
 
 (defun movie-youtube-sentinel (process status)
