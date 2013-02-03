@@ -47,6 +47,7 @@
     "-delay" "-0.1"
     ;; Pause at the end of files.
     "-loop" "0"
+    "-mouse-movements"
     )
   "Command to play a file.")
 
@@ -157,6 +158,7 @@
   (define-key movie-mode-map [deletechar] 'movie-delete-file)
   (define-key movie-mode-map "d" 'movie-play-dvd)
   (define-key movie-mode-map "D" 'movie-play-whole-dvd)
+  (define-key movie-mode-map "W" 'movie-play-total-dvd)
   (define-key movie-mode-map "V" 'movie-play-vlc-dvd)
   (define-key movie-mode-map "f" 'movie-play-next-vob)
   (define-key movie-mode-map "F" 'movie-play-current-vob)
@@ -460,6 +462,11 @@
   "Play the DVD."
   (interactive "p")
   (movie-play (format "dvd://%d" number)))
+
+(defun movie-play-total-dvd ()
+  "Play the DVD."
+  (interactive)
+  (movie-play "dvdnav://"))
 
 (defun movie-play-vlc-dvd (number)
   "Play the DVD."
