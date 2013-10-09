@@ -42,11 +42,11 @@
     "-vo" "xv"
     "-fs" "-quiet"
     "-softvol"
-    "-ao" "alsa:device=hw=2.7"
+    "-ao" "alsa:device=hw=1.7"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
     ;; Pause at the end of files.
-    "-loop" "0"
+    ;;"-loop" "0"
     "-mouse-movements"
     )
   "Command to play a file.")
@@ -564,8 +564,13 @@
     (goto-char (point-min))
     (buffer-substring (point) (line-end-position))))
     
-(defun movie-play-youtube (url)
-  (movie-play (movie-direct-url url)))
+(defun movie-play-youtube (url &optional aspect)
+  (movie-play-1
+   (append movie-player
+	   (and aspect
+		(list "-aspect" "4:3"))
+	   (list
+	    (movie-direct-url url)))))
 
 (provide 'movie)
 
