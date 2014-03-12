@@ -37,6 +37,7 @@
 
 (defvar movie-player
   '("mplayer"
+    "-vf" "screenshot"
     "-framedrop" "-hardframedrop"
     "-volume" "2"
     "-vo" "xv"
@@ -45,6 +46,7 @@
     "-ao" "alsa:device=hw=1.7"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
+    ;;"-ss" "1"
     ;; Pause at the end of files.
     ;;"-loop" "0"
     "-mouse-movements"
@@ -61,6 +63,9 @@
 (defvar movie-aplayer
   '("mplayer" "-fs" "-monitoraspect" "4:3" "-softvol")
   "Player alternative for 4:3 monitors.")
+
+(defvar movie-picture-directory nil
+  "Directory where pictures are taken during movie playing.")
 
 (defvar movie-file-id nil)
 
@@ -237,12 +242,11 @@
 	       (setq options
 		     (movie-add-vf options "crop=700:420")))
 	      ((eq char ?i)
-	       (setq options (movie-add-vf
-			      options "pp=lb")))
+	       (setq options (movie-add-vf options "pp=lb")))
 	      ((eq char ?x)
 	       (setq options (append options (list "-vo" "xv"))))
 	      ((eq char ?n)
-	       (setq movie-dndnav-p t))
+	       (setq movie-dvdnav-p t))
 	      (t
 	       (setq command
 		     (lookup-key movie-mode-map (format "%c" char)))
@@ -298,12 +302,51 @@
 				 player)))))
   ;; The prefix command has been used to switch on libdvdnav playing.
   (when movie-dvdnav-p
-    (let ((file (last mplayer)))
+    (let ((file (last movie-player)))
       (when (string-match "^dvd:" (car file))
-	(setcar file (concat "dvdnav:" (substring (car file) 4))))))
-  (apply 'call-process (car player) nil
-	 (get-buffer-create "*mplayer*")
-	 nil (cdr player)))
+	(setcar file (concat "dvdnav:" (substring (car file) 4)))))
+    (unless (member "-ss" player)
+      (setq player (cons (pop player)
+			 (append (list "-ss" "1")
+				 player)))))
+  (if movie-picture-directory
+      (apply 'call-process (car player) nil
+	     (current-buffer)
+	     nil (cdr player))
+    (let* ((file (file-name-nondirectory
+		  (directory-file-name
+		   (file-name-directory (file-truename (car (last player)))))))
+	   (dir (format "~/.emacs.d/screenshots/%s/" file))
+	   (highest (movie-find-highest-image)))
+      (unless (file-exists-p dir)
+	(make-directory dir t))
+      (with-current-buffer (get-buffer-create "*mplayer*")
+	(setq default-directory dir)
+	(apply 'call-process (car player) nil
+	       (current-buffer)
+	       nil (cdr player))
+	(movie-copy-images-higher-than highest dir)
+	(dolist (file (directory-files dir t "shot.*png"))
+	  (call-process "convert" nil nil nil file
+			(format "%s.jpg" file))
+	  (delete-file file))))))
+
+(defun movie-find-highest-image ()
+  (car
+   (sort (mapcar 'movie-image-number
+		 (directory-files movie-picture-directory nil "DSC[0-9]+.JPG"))
+	 '>)))
+
+(defun movie-image-number (file)
+  (if (string-match "DSC\\([0-9]+\\).JPG" file)
+      (string-to-number (match-string 1 file))
+    0))
+
+(defun movie-copy-images-higher-than (highest dir)
+  (dolist (file (directory-files movie-picture-directory t "DSC[0-9]+.JPG"))
+    (when (> (movie-image-number file) highest)
+      (let ((new-file (expand-file-name (file-name-nondirectory file) dir)))
+	(call-process "convert" nil nil nil "-resize" "1000x" file new-file)))))
 
 (defun movie-delete-file (file)
   "Delete the file under point."
@@ -463,10 +506,10 @@
   (interactive "p")
   (movie-play (format "dvd://%d" number)))
 
-(defun movie-play-total-dvd ()
+(defun movie-play-total-dvd (&optional number)
   "Play the DVD."
-  (interactive)
-  (movie-play "dvdnav://"))
+  (interactive "P")
+  (movie-play (format "dvdnav://%s" (or number ""))))
 
 (defun movie-play-vlc-dvd (number)
   "Play the DVD."
