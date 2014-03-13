@@ -309,7 +309,7 @@
       (setq player (cons (pop player)
 			 (append (list "-ss" "1")
 				 player)))))
-  (if movie-picture-directory
+  (if (not movie-picture-directory)
       (apply 'call-process (car player) nil
 	     (current-buffer)
 	     nil (cdr player))
