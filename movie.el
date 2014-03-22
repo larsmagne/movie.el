@@ -41,9 +41,10 @@
     "-framedrop" "-hardframedrop"
     "-volume" "2"
     "-vo" "xv"
-    "-fs" "-quiet"
+    "-fs"
+    "-quiet"
     "-softvol"
-    "-ao" "alsa:device=hw=1.7"
+    "-ao" "alsa:device=hw=0.8"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
     ;;"-ss" "1"
@@ -181,6 +182,7 @@
   (define-key movie-mode-map "r" 'movie-rename)
   (define-key movie-mode-map "l" 'movie-list-channels)
   (define-key movie-mode-map "-" 'movie-collapse)
+  (define-key movie-mode-map "o" 'movie-move-to-old)
   (define-key movie-mode-map "." 'end-of-buffer)
   (define-key movie-mode-map "," 'beginning-of-buffer)
   (define-key movie-mode-map "}" 'scroll-down-command)
@@ -233,7 +235,7 @@
 
 (defun movie-prefixed-action ()
   (interactive)
-  (let ((options nil)
+  (let ((options '("-vf" "screenshot"))
 	(command nil)
 	(movie-dvdnav-p nil))
     (while (let ((char (read-char "")))
@@ -325,25 +327,21 @@
 	(apply 'call-process (car player) nil
 	       (current-buffer)
 	       nil (cdr player))
-	(movie-copy-images-higher-than highest dir)
-	(dolist (file (directory-files dir t "shot.*png"))
-	  (call-process "convert" nil nil nil file
-			(format "%s.jpg" file))
-	  (delete-file file))))))
+	(movie-copy-images-higher-than highest dir)))))
 
 (defun movie-find-highest-image ()
   (car
    (sort (mapcar 'movie-image-number
-		 (directory-files movie-picture-directory nil "DSC[0-9]+.JPG"))
+		 (directory-files movie-picture-directory nil "IMG_[0-9]+.JPG"))
 	 '>)))
 
 (defun movie-image-number (file)
-  (if (string-match "DSC\\([0-9]+\\).JPG" file)
+  (if (string-match "IMG_\\([0-9]+\\).JPG" file)
       (string-to-number (match-string 1 file))
     0))
 
 (defun movie-copy-images-higher-than (highest dir)
-  (dolist (file (directory-files movie-picture-directory t "DSC[0-9]+.JPG"))
+  (dolist (file (directory-files movie-picture-directory t "IMG_[0-9]+.JPG"))
     (when (> (movie-image-number file) highest)
       (let ((new-file (expand-file-name (file-name-nondirectory file) dir)))
 	(call-process "convert" nil nil nil "-resize" "1000x" file new-file)))))
@@ -360,6 +358,13 @@
 	  (delete-file png))))
     (beginning-of-line)
     (movie-rescan-1)))
+
+(defun movie-move-to-old (file)
+  "Move the file or directory under point to the 'old' directory."
+  (interactive (list (movie-current-file)))
+  (rename-file file (expand-file-name (file-name-nondirectory "/tv/old")))
+  (beginning-of-line)
+  (movie-rescan-1))
 
 (defun movie-current-file ()
   (save-excursion
