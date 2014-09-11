@@ -183,6 +183,7 @@
   (define-key movie-mode-map "l" 'movie-list-channels)
   (define-key movie-mode-map "-" 'movie-collapse)
   (define-key movie-mode-map "o" 'movie-move-to-old)
+  (define-key movie-mode-map "i" 'movie-move-to-seen)
   (define-key movie-mode-map "." 'end-of-buffer)
   (define-key movie-mode-map "," 'beginning-of-buffer)
   (define-key movie-mode-map "}" 'scroll-down-command)
@@ -362,7 +363,18 @@
 (defun movie-move-to-old (file)
   "Move the file or directory under point to the 'old' directory."
   (interactive (list (movie-current-file)))
-  (rename-file file (expand-file-name (file-name-nondirectory "/tv/old")))
+  (rename-file file (expand-file-name "old"))
+  (beginning-of-line)
+  (movie-rescan-1))
+
+(defun movie-move-to-seen (file)
+  "Move the file or directory under point to the 'seen' directory."
+  (interactive (list (movie-current-file)))
+  (rename-file file (expand-file-name "seen"))
+  (with-temp-file (expand-file-name "seen-date"
+				    (expand-file-name (file-name-nondirectory file)
+						      (expand-file-name "seen")))
+    (insert (format-time-string "%FT%T\n")))
   (beginning-of-line)
   (movie-rescan-1))
 
@@ -608,7 +620,8 @@
 
 (defun movie-direct-url (url)
   (with-temp-buffer
-    (call-process "youtube-dl" nil (current-buffer) nil "-g" url)
+    (call-process "youtube-dl" nil (current-buffer) nil
+		  "--prefer-insecure" "-g" url)
     (goto-char (point-min))
     (buffer-substring (point) (line-end-position))))
     
