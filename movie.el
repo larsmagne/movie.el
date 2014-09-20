@@ -634,6 +634,24 @@
 	   (list
 	    (movie-direct-url url)))))
 
+(defun movie-get-mkv-info (file)
+  "Output pertinent information about MKV FILE."
+  (interactive "fMKV File: ")
+  (let ((dom (mkv-information file)))
+    (list
+     :length (movie-mkv-length
+	      (dom-attr (dom-by-name dom 'Segment-information) :Duration))
+     :audio-tracks (loop for track in (dom-by-name dom 'A-track)
+			 when (equal (dom-attr track :Track-type) "audio")
+			 collect (dom-attr track :Language))
+     :subtitles (loop for track in (dom-by-name dom 'A-track)
+		      when (equal (dom-attr track :Track-type) "subtitles")
+		      collect (dom-attr track :Language)))))
+
+(defun movie-mkv-length (string)
+  (and (string-match "\\([0-9.]+\\)s" string)
+       (string-to-number (match-string 1 string))))
+
 (provide 'movie)
 
 ;;; movie.el ends here
