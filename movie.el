@@ -652,6 +652,36 @@
   (and (string-match "\\([0-9.]+\\)s" string)
        (string-to-number (match-string 1 string))))
 
+(defun movie-make-stats-file (directory)
+  "Create a stats file for DIRECTORY."
+  (interactive "dDirectory: ")
+  (with-temp-file (expand-file-name "stats" directory)
+    (let* ((title (replace-regexp-in-string " +([0-9]+)$" ""
+					    (file-name-nondirectory directory)))
+	   (imdb (imdb-query title))
+	   (files (directory-files directory t "mkv$")))
+      (insert
+       (format
+	"Title: %s\nDirectory: %s\nYear: %s\nGenre: %s\nRecorded: %s\n\n"
+	title
+	(cadr imdb)
+	(car imdb)
+	(completing-read
+	 "Genre: "
+	 '("art" "western" "sci-fi" "gay" "european" "indie"
+	   "oldie" "musical"))
+	(replace-regexp-in-string
+	 "[-:]" ""
+	 (format-time-string
+	  "%FT%T"
+	  (nth 5 (file-attributes (car files)))))))
+      (dolist (file files)
+	(insert (format
+		 "%S\n"
+		 (cons 
+		  (file-name-nondirectory file)
+		  (movie-get-mkv-info file))))))))
+
 (provide 'movie)
 
 ;;; movie.el ends here
