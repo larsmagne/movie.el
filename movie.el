@@ -62,10 +62,6 @@
   '("-af" "volume=15:1")
   "Parameters to boost the volume.")
 
-(defvar movie-aplayer
-  '("mplayer" "-fs" "-monitoraspect" "4:3" "-softvol")
-  "Player alternative for 4:3 monitors.")
-
 (defvar movie-picture-directory nil
   "Directory where pictures are taken during movie playing.")
 
@@ -176,7 +172,6 @@
   (define-key movie-mode-map "c" 'movie-play-cropped)
   (define-key movie-mode-map "x" 'movie-prefixed-action)
   (define-key movie-mode-map "h" 'movie-play-high-volume)
-  (define-key movie-mode-map "a" 'movie-aplay)
   (define-key movie-mode-map "g" 'movie-rescan)
   (define-key movie-mode-map "t" 'movie-find-torrent)
   (define-key movie-mode-map "s" 'movie-toggle-sort)
@@ -185,6 +180,7 @@
   (define-key movie-mode-map "-" 'movie-collapse)
   (define-key movie-mode-map "o" 'movie-move-to-old)
   (define-key movie-mode-map "i" 'movie-move-to-seen)
+  (define-key movie-mode-map "i" 'movie-add-stats)
   (define-key movie-mode-map "." 'end-of-buffer)
   (define-key movie-mode-map "," 'beginning-of-buffer)
   (define-key movie-mode-map "}" 'scroll-down-command)
@@ -249,6 +245,9 @@
 	       (setq options (movie-add-vf options "pp=lb")))
 	      ((eq char ?x)
 	       (setq options (append options (list "-vo" "xv"))))
+	      ((eq char ?a)
+	       (setq options
+		     (movie-add-vf options "-monitoraspect=4:3")))
 	      ((eq char ?n)
 	       (setq movie-dvdnav-p t))
 	      (t
@@ -269,10 +268,6 @@
 (defun movie-play-high-volume (file)
   (interactive (list (movie-current-file)))
   (movie-play-1 (append movie-player movie-high-volume (list file))))
-
-(defun movie-aplay (file)
-  (interactive (list (movie-current-file)))
-  (movie-play-1 (append movie-aplayer (list file))))
 
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
