@@ -27,6 +27,7 @@
 
 (require 'pvr)
 (load "time-date.el")
+(require 'imdb)
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
