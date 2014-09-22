@@ -157,18 +157,18 @@
   (dolist (file files)
     (let ((subtitles (length (plist-get file :subtitles))))
       (insert (format
-	       " %s%s%s\n"
+	       " %s%s\n"
 	       (propertize
 		(file-name-nondirectory (plist-get file :file))
 		'face `(:foreground
-			,(when (plist-get file :seen)
+			,(if (not (plist-get file :seen))
+			     "white"
 			   (let ((seen (car (last (plist-get file :seen) 2)))
 				 (length (plist-get file :length)))
 			     (if (or (plist-get file :directoryp)
 				     (> (/ seen length) 0.9))
 				 "#5050ff"
 			       "#e0e0e0")))))
-	       (if (plist-get file :directoryp) "/" "")
 	       (if (plist-get file :directoryp)
 		   ""
 		 (format
@@ -188,7 +188,8 @@
 		    "")))))
       (save-excursion
 	(forward-line -1)
-	(let ((png (concat (plist-get file :file) ".png")))
+	(let ((png (or (plist-get file :image)
+		       (concat (plist-get file :file) ".png"))))
 	  (if (file-exists-p png)
 	      (insert-image (create-image png))
 	    (insert-image (create-image "~/tmp/empty.png"))))
@@ -405,7 +406,8 @@
 	(apply 'call-process (car player) nil
 	       (current-buffer)
 	       nil (cdr player))
-	(movie-copy-images-higher-than highest dir)))))
+	(movie-copy-images-higher-than highest dir)
+	(movie-update-stats-position (car (last player)))))))
 
 (defun movie-find-highest-image ()
   (car
@@ -804,6 +806,26 @@
       (insert "Status: seen\n")
       (insert (format "Seen: %s\n" (format-time-string "%Y%m%dT%H%M%S"))))
     (message "Marked as seen")))
+
+(defun movie-update-stats-position (file)
+  (let* ((dir (file-name-directory file))
+	 (stats (movie-get-stats dir))
+	 (stats-file (expand-file-name "stats" dir)))
+    (when stats
+      (let ((position (movie-find-position file t))
+	    (track (assoc (file-name-nondirectory file)
+			  (cdr (assoc 'tracks stats)))))
+	(when (and position track)
+	  (plist-put (cdr track) :seen
+		     (append (plist-get (cdr track) :seen)
+			     (list (string-to-number position)
+				   (format-time-string "%Y%m%dT%H%M%S"))))
+	  (with-temp-file stats-file
+	    (insert-file-contents stats-file)
+	    (when (search-forward "\n\n" nil t)
+	      (delete-region (point) (point-max))
+	      (dolist (track (cdr (assoc 'tracks stats)))
+		(insert (format "%S\n" track))))))))))
 
 (provide 'movie)
 
