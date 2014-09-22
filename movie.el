@@ -137,27 +137,46 @@
     (setq order 'chronological))
   (setq files (movie-sort files order))
   (dolist (file files)
-    (insert (format
-	     " %s%s%s\n"
-	     (file-name-nondirectory (plist-get file :file))
-	     (if (plist-get file :directoryp) "/" "")
-	     (if (plist-get file :directoryp)
-		 ""
-	       (format " (%s)"
-		       (if (plist-get file :length)
-			   (movie-format-length (plist-get file :length))
-			 (round
-			  (/ (or (plist-get file :size) -1) 1024 1024)))))))
-    (save-excursion
-      (forward-line -1)
-      (let ((png (concat (plist-get file :file) ".png")))
-	(if (file-exists-p png)
-	    (insert-image (create-image png))
-	  (insert-image (create-image "~/tmp/empty.png"))))
-      (beginning-of-line)
-      (put-text-property
-       (point) (1+ (point))
-       'file-name (file-name-nondirectory (plist-get file :file))))))
+    (let ((subtitles (length (plist-get file :subtitles))))
+      (insert (format
+	       " %s%s%s\n"
+	       (propertize
+		(file-name-nondirectory (plist-get file :file))
+		'face `(:foreground
+			,(when (plist-get file :seen)
+			   (let ((seen (car (last (plist-get file :seen) 2)))
+				 (length (plist-get file :length)))
+			     (if (> (/ seen length) 0.9)
+				 "#5050ff"
+			       "#e0e0e0")))))
+	       (if (plist-get file :directoryp) "/" "")
+	       (if (plist-get file :directoryp)
+		   ""
+		 (format
+		  " (%s)%s%s"
+		  (if (plist-get file :length)
+		      (movie-format-length (plist-get file :length))
+		    (round
+		     (/ (or (plist-get file :size) -1) 1024 1024)))
+		  (if (> (length (plist-get file :audio-tracks)) 1)
+		      (format " %s" (mapconcat
+				     'identity
+				     (plist-get file :audio-tracks) ","))
+		    "")
+		  (if (> subtitles 0)
+		      (format " %s sub%s" subtitles
+			      (if (= subtitles 1) "" "s"))
+		    "")))))
+      (save-excursion
+	(forward-line -1)
+	(let ((png (concat (plist-get file :file) ".png")))
+	  (if (file-exists-p png)
+	      (insert-image (create-image png))
+	    (insert-image (create-image "~/tmp/empty.png"))))
+	(beginning-of-line)
+	(put-text-property
+	 (point) (1+ (point))
+	 'file-name (file-name-nondirectory (plist-get file :file)))))))
 
 (defun movie-format-length (seconds)
   (if (< seconds (* 60 60))
