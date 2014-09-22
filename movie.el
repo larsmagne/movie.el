@@ -28,6 +28,7 @@
 (require 'pvr)
 (load "time-date.el")
 (require 'imdb)
+(require 'mkv)
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
@@ -86,23 +87,48 @@
     (setq default-directory directory)
     (goto-char (point-min))))
 
+(defun movie-get-stats (directory)
+  (let ((file (expand-file-name "stats" directory))
+	data)
+    (when (file-exists-p file)
+      (with-temp-buffer
+	(insert-file-contents file)
+	(while (looking-at "\\([^:\n]+\\): \\(.*\\)")
+	  (push (cons (match-string 1) (match-string 2)) data)
+	  (forward-line 1))
+	(forward-line 1)
+	(let ((tracks nil))
+	  (while (looking-at "(")
+	    (push (read (current-buffer)) tracks)
+	    (forward-line 1))
+	  (push (cons 'tracks (nreverse tracks)) data))))
+    (nreverse data)))	  
+
 (defun movie-get-files (directory &optional match)
   (let ((files (directory-files directory t))
 	(data nil)
-	stats)
+	(stats (movie-get-stats directory))
+	atts track)
     (dolist (file files)
-      (setq stats (file-attributes file))
+      (setq atts (file-attributes file))
       (when (and
 	     (or (null match)
 		 (let ((case-fold-search t))
 		   (string-match match file)))
-	     (not (string-match "\\.png\\'" file))
-	     (or (and (eq (car stats) nil)
+	     (not (string-match "\\.png\\'\\|/stats\\|/seen-date" file))
+	     (or (and (eq (car atts) nil)
 		      (string-match movie-files (file-name-nondirectory file)))
-		 (and (eq (car stats) t)
+		 (and (eq (car atts) t)
 		      (not (member (file-name-nondirectory file)
 				   '("." ".."))))))
-	(push (list file (nth 5 stats) (nth 7 stats) (nth 0 stats))
+	(setq track (assoc (file-name-nondirectory file)
+			   (cdr (assoc 'tracks stats))))
+	(push `(:file ,file
+		      :time ,(nth 5 atts)
+		      :size ,(nth 7 atts)
+		      :directoryp ,(nth 0 atts)
+		      ,@(when track
+			  (cdr track)))
 	      data)))
     data))
 
@@ -111,21 +137,35 @@
     (setq order 'chronological))
   (setq files (movie-sort files order))
   (dolist (file files)
-    (insert (format " %s%s%s\n"
-		    (file-name-nondirectory (nth 0 file))
-		    (if (eq (nth 3 file) t) "/" "")
-		    (if (eq (nth 3 file) t) ""
-		      (format " (%d)"
-			      (round (/ (or (nth 2 file) -1) 1024 1024))))))
+    (insert (format
+	     " %s%s%s\n"
+	     (file-name-nondirectory (plist-get file :file))
+	     (if (plist-get file :directoryp) "/" "")
+	     (if (plist-get file :directoryp)
+		 ""
+	       (format " (%s)"
+		       (if (plist-get file :length)
+			   (movie-format-length (plist-get file :length))
+			 (round
+			  (/ (or (plist-get file :size) -1) 1024 1024)))))))
     (save-excursion
       (forward-line -1)
-      (let ((png (concat (nth 0 file) ".png")))
+      (let ((png (concat (plist-get file :file) ".png")))
 	(if (file-exists-p png)
 	    (insert-image (create-image png))
 	  (insert-image (create-image "~/tmp/empty.png"))))
       (beginning-of-line)
-      (put-text-property (point) (1+ (point))
-			 'file-name (file-name-nondirectory (nth 0 file))))))
+      (put-text-property
+       (point) (1+ (point))
+       'file-name (file-name-nondirectory (plist-get file :file))))))
+
+(defun movie-format-length (seconds)
+  (if (< seconds (* 60 60))
+      (format "%02d:%02dm" (truncate (/ seconds 60))
+	      (mod seconds 60))
+    (format "%02d:%02dh"
+	    (truncate (/ seconds 60 60))
+	    (mod (/ seconds 60) 60))))
 
 (defun movie-limit (match)
   "Limit the buffer to matching files."
@@ -142,50 +182,52 @@
 	 (cond
 	  ((eq order 'alphabetical)
 	   (lambda (f1 f2)
-	     (string< (downcase (car f1)) (downcase (car f2)))))
+	     (string< (downcase (plist-get f1 :file))
+		      (downcase (plist-get f2 :file)))))
 	  ((eq order 'chronological)
 	   (lambda (f1 f2)
-	     (time-less-p (nth 1 f1) (nth 1 f2))))
+	     (time-less-p (plist-get f1 :time)
+			  (plist-get f2 :time))))
 	  (t
 	   (error "No such order %s" order)))))
     (sort files predicate)))
 
-(defvar movie-mode-map nil)
-(unless movie-mode-map
-  (setq movie-mode-map (make-sparse-keymap))
-  (suppress-keymap movie-mode-map)
-  (define-key movie-mode-map "\r" 'movie-find-file)
-  (define-key movie-mode-map [delete] 'movie-delete-file)
-  (define-key movie-mode-map [del] 'movie-delete-file)
-  (define-key movie-mode-map [backspace] 'movie-delete-file)
-  (define-key movie-mode-map [deletechar] 'movie-delete-file)
-  (define-key movie-mode-map "d" 'movie-play-dvd)
-  (define-key movie-mode-map "D" 'movie-play-whole-dvd)
-  (define-key movie-mode-map "W" 'movie-play-total-dvd)
-  (define-key movie-mode-map "V" 'movie-play-vlc-dvd)
-  (define-key movie-mode-map "f" 'movie-play-next-vob)
-  (define-key movie-mode-map "F" 'movie-play-current-vob)
-  (define-key movie-mode-map "T" 'movie-thumbnails)
-  (define-key movie-mode-map "q" 'bury-buffer)
-  (define-key movie-mode-map "e" 'movie-eject)
-  (define-key movie-mode-map "k" 'movie-browse)
-  (define-key movie-mode-map "c" 'movie-play-cropped)
-  (define-key movie-mode-map "x" 'movie-prefixed-action)
-  (define-key movie-mode-map "h" 'movie-play-high-volume)
-  (define-key movie-mode-map "g" 'movie-rescan)
-  (define-key movie-mode-map "t" 'movie-find-torrent)
-  (define-key movie-mode-map "s" 'movie-toggle-sort)
-  (define-key movie-mode-map "r" 'movie-rename)
-  (define-key movie-mode-map "l" 'movie-list-channels)
-  (define-key movie-mode-map "-" 'movie-collapse)
-  (define-key movie-mode-map "o" 'movie-move-to-old)
-  (define-key movie-mode-map "i" 'movie-move-to-seen)
-  (define-key movie-mode-map "i" 'movie-add-stats)
-  (define-key movie-mode-map "." 'end-of-buffer)
-  (define-key movie-mode-map "," 'beginning-of-buffer)
-  (define-key movie-mode-map "}" 'scroll-down-command)
-  (define-key movie-mode-map "'" 'scroll-up-command)
-  (define-key movie-mode-map "/" 'movie-limit))
+(defvar movie-mode-map 
+  (let ((map (make-sparse-keymap)))
+    (suppress-keymap map)
+    (define-key map "\r" 'movie-find-file)
+    (define-key map [delete] 'movie-delete-file)
+    (define-key map [del] 'movie-delete-file)
+    (define-key map [backspace] 'movie-delete-file)
+    (define-key map [deletechar] 'movie-delete-file)
+    (define-key map "d" 'movie-play-dvd)
+    (define-key map "D" 'movie-play-whole-dvd)
+    (define-key map "W" 'movie-play-total-dvd)
+    (define-key map "V" 'movie-play-vlc-dvd)
+    (define-key map "f" 'movie-play-next-vob)
+    (define-key map "F" 'movie-play-current-vob)
+    (define-key map "T" 'movie-thumbnails)
+    (define-key map "q" 'bury-buffer)
+    (define-key map "e" 'movie-eject)
+    (define-key map "k" 'movie-browse)
+    (define-key map "c" 'movie-play-cropped)
+    (define-key map "x" 'movie-prefixed-action)
+    (define-key map "h" 'movie-play-high-volume)
+    (define-key map "g" 'movie-rescan)
+    (define-key map "t" 'movie-find-torrent)
+    (define-key map "s" 'movie-toggle-sort)
+    (define-key map "r" 'movie-rename)
+    (define-key map "l" 'movie-list-channels)
+    (define-key map "-" 'movie-collapse)
+    (define-key map "o" 'movie-move-to-old)
+    (define-key map "i" 'movie-mark-as-seen)
+    (define-key map "a" 'movie-add-stats)
+    (define-key map "." 'end-of-buffer)
+    (define-key map "," 'beginning-of-buffer)
+    (define-key map "}" 'scroll-down-command)
+    (define-key map "'" 'scroll-up-command)
+    (define-key map "/" 'movie-limit)
+    map))
 
 (defvar movie-mode nil
   "Mode for Movie buffers.")
@@ -273,7 +315,7 @@
   (interactive (list (movie-current-file)))
   (movie-play-1 (append movie-player (list file))))
 
-(defun movie-find-position (file)
+(defun movie-find-position (file &optional no-skip)
   (when (and (file-exists-p "~/.mplayer.positions")
 	     (string-match "^/tv\\|^/dvd\\|http:" file)
 	     (not (equal file "/tv/live")))
@@ -285,7 +327,8 @@
 	(beginning-of-line)
 	(and (looking-at "[0-9]+")
 	     ;; Skip backwards two seconds to avoid missing a second.
-	     (format "%d" (max (- (string-to-number (match-string 0)) 2)
+	     (format "%d" (max (- (string-to-number (match-string 0))
+				  (if no-skip 0 2))
 			       0)))))))
   
 (defun movie-play-1 (player)
@@ -363,16 +406,13 @@
   (beginning-of-line)
   (movie-rescan-1))
 
-(defun movie-move-to-seen (file)
-  "Move the file or directory under point to the 'seen' directory."
-  (interactive (list (movie-current-file)))
-  (rename-file file (expand-file-name "seen"))
-  (with-temp-file (expand-file-name "seen-date"
-				    (expand-file-name (file-name-nondirectory file)
-						      (expand-file-name "seen")))
-    (insert (format-time-string "%FT%T\n")))
-  (beginning-of-line)
-  (movie-rescan-1))
+(defun movie-add-stats (dir &optional no-director)
+  "Add a stats file to the directory under point."
+  (interactive (list (movie-current-file) current-prefix-arg))
+  (unless (file-directory-p dir)
+    (error "Must be called on a directory"))
+  (movie-make-stats-file dir no-director)
+  (message "Made a stats file for %s" dir))
 
 (defun movie-current-file ()
   (save-excursion
@@ -632,50 +672,97 @@
 (defun movie-get-mkv-info (file)
   "Output pertinent information about MKV FILE."
   (interactive "fMKV File: ")
-  (let ((dom (mkv-information file)))
-    (list
-     :length (movie-mkv-length
-	      (dom-attr (dom-by-name dom 'Segment-information) :Duration))
-     :audio-tracks (loop for track in (dom-by-name dom 'A-track)
-			 when (equal (dom-attr track :Track-type) "audio")
-			 collect (dom-attr track :Language))
-     :subtitles (loop for track in (dom-by-name dom 'A-track)
-		      when (equal (dom-attr track :Track-type) "subtitles")
-		      collect (dom-attr track :Language)))))
+  (let* ((dom (mkv-information file))
+	 (subtitles (loop for track in (dom-by-name dom 'A-track)
+			  when (equal (dom-attr track :Track-type) "subtitles")
+			  collect (dom-attr track :Language))))
+    
+    `(:length ,(movie-mkv-length
+		(dom-attr (dom-by-name dom 'Segment-information) :Duration))
+	      :audio-tracks ,(loop for track in (dom-by-name dom 'A-track)
+				   when (equal (dom-attr track :Track-type) "audio")
+				   collect (or (dom-attr track :Language)
+					       (dom-attr track :Name)))
+	      ,@(when subtitles
+		  (list :subtitles subtitles)))))
 
 (defun movie-mkv-length (string)
   (and (string-match "\\([0-9.]+\\)s" string)
        (string-to-number (match-string 1 string))))
 
-(defun movie-make-stats-file (directory)
+(defun movie-make-stats-file (directory &optional no-directory)
   "Create a stats file for DIRECTORY."
-  (interactive "dDirectory: ")
+  (interactive "dDirectory: \nP")
   (with-temp-file (expand-file-name "stats" directory)
     (let* ((title (replace-regexp-in-string " +([0-9]+)$" ""
 					    (file-name-nondirectory directory)))
-	   (imdb (imdb-query title))
+	   (imdb (if (not no-directory)
+		     (imdb-query title)))
 	   (files (directory-files directory t "mkv$")))
+      (insert (format "Title: %s\n" title))
+      (when imdb
+	(insert (format "Director: %s\nYear: %s\n"
+			(cadr imdb)
+			(car imdb))))
       (insert
        (format
-	"Title: %s\nDirectory: %s\nYear: %s\nGenre: %s\nRecorded: %s\n\n"
-	title
-	(cadr imdb)
-	(car imdb)
+	"Genre: %s\nRecorded: %s\n"
 	(completing-read
 	 "Genre: "
 	 '("art" "western" "sci-fi" "gay" "european" "indie"
-	   "oldie" "musical"))
+	   "oldie" "musical" "comedy" "music" "entertainment"
+	   "mst3k" "horror" "documentary"
+	   "crime"))
 	(replace-regexp-in-string
 	 "[-:]" ""
 	 (format-time-string
 	  "%FT%T"
 	  (nth 5 (file-attributes (car files)))))))
+      (let ((seen (expand-file-name "seen-date" directory)))
+	(when (file-exists-p seen)
+	  (let ((date
+		 (with-temp-buffer
+		   (insert-file-contents seen)
+		   (replace-regexp-in-string "[^0-9T]" "" (buffer-string)))))
+	    (insert (format "Status: seen\nSeen: %s\n" date)))))
+      (insert "\n")
       (dolist (file files)
-	(insert (format
-		 "%S\n"
-		 (cons 
-		  (file-name-nondirectory file)
-		  (movie-get-mkv-info file))))))))
+	(let ((position (movie-find-position file t)))
+	  (insert (format
+		   "%S\n"
+		   `(,(file-name-nondirectory file)
+		     ,@(movie-get-mkv-info file)
+		     ,@(when position
+			 `(:seen (,(string-to-number position)
+				  "19700101T010000")))))))))))
+
+(defun movie-one-directory ()
+  "Move files from (2)-like subdirectories to the current directory."
+  (interactive)
+  (dolist (sub (directory-files default-directory t " ([0-9]+)$"))
+    (dolist (file (directory-files sub t))
+      (let ((new (expand-file-name (file-name-nondirectory file)
+				   default-directory)))
+	(when (and (file-regular-p file)
+		   (not (file-exists-p new)))
+	  (rename-file file new))))
+    (delete-directory sub)))
+
+(defun movie-mark-as-seen ()
+  "Mark the current DVD directory as seen in the stats file."
+  (interactive)
+  (let ((stats (expand-file-name "stats" default-directory)))
+    (unless (file-exists-p stats)
+      (error "No stats file"))
+    (with-temp-file stats
+      (insert-file-contents stats)
+      (if (re-search-forward "^Status:" nil t)
+	  (delete-region (match-beginning 0) (progn (forward-line 1) (point)))
+	(search-forward "\n\n")
+	(forward-line -1))
+      (insert "Status: seen\n")
+      (insert (format "Seen: %s\n" (format-time-string "%Y%m%dT%H%M%S"))))
+    (message "Marked as seen")))
 
 (provide 'movie)
 
