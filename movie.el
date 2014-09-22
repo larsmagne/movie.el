@@ -160,17 +160,17 @@
     (let ((subtitles (length (plist-get file :subtitles))))
       (insert (format
 	       " %s%s\n"
-	       (propertize
-		(file-name-nondirectory (plist-get file :file))
-		'face `(:foreground
-			,(if (not (plist-get file :seen))
-			     "white"
-			   (let ((seen (car (last (plist-get file :seen) 2)))
-				 (length (plist-get file :length)))
-			     (if (or (plist-get file :directoryp)
-				     (> (/ seen length) 0.9))
-				 "#5050ff"
-			       "#ff5050")))))
+	       (if (not (plist-get file :seen))
+		   (file-name-nondirectory (plist-get file :file))
+		 (propertize
+		  (file-name-nondirectory (plist-get file :file))
+		  'face `(:foreground
+			  ,(let ((seen (car (last (plist-get file :seen) 2)))
+				(length (plist-get file :length)))
+			    (if (or (plist-get file :directoryp)
+				    (> (/ seen length) 0.9))
+				"#5050ff"
+			      "#ff5050")))))
 	       (if (plist-get file :directoryp)
 		   ""
 		 (format
@@ -805,8 +805,8 @@
 	  (delete-region (match-beginning 0) (progn (forward-line 1) (point)))
 	(search-forward "\n\n")
 	(forward-line -1))
-      (insert "Status: %s\n"
-	      (if mostly "mostly-seen" "seen"))
+      (insert (format "Status: %s\n"
+		      (if mostly "mostly-seen" "seen")))
       (unless mostly
 	(insert (format "Seen: %s\n" (format-time-string "%Y%m%dT%H%M%S")))))
     (message "Marked as seen")))
