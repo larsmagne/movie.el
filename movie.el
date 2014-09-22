@@ -448,9 +448,12 @@
 (defun movie-rescan-1 (&optional order)
   (unless order
     (setq order movie-order))
+  (when (and (bolp)
+	     (not (eobp)))
+    (forward-char 1))
   (let ((lines (count-lines (point-min) (point))))
     (movie-browse default-directory order movie-limit)
-    (forward-line lines)))
+    (forward-line (1- lines))))
 
 (defun movie-toggle-sort ()
   "Toggle sorting by time."
