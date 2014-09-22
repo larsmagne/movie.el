@@ -128,9 +128,27 @@
 		      :size ,(nth 7 atts)
 		      :directoryp ,(nth 0 atts)
 		      ,@(when track
-			  (cdr track)))
+			  (cdr track))
+		      ,@(when (nth 0 atts)
+			  (movie-dvd-directory-data file)))
 	      data)))
     data))
+
+(defun movie-dvd-directory-data (dir)
+  (let ((stats (movie-get-stats dir))
+	data max)
+    (when stats
+      (when (assoc "Seen" stats)
+	(setq data (list :seen '(t))))
+      (dolist (track (cdr (assoc 'tracks stats)))
+	(when (or (not max)
+		  (> (plist-get (cdr track) :length)
+		     (plist-get (cdr max) :length)))
+	  (setq max track)))
+      (setq data (nconc
+		  (list :image (expand-file-name (concat (car max) ".png") dir))
+		  data))
+      data)))
 
 (defun movie-generate-buffer (files &optional order)
   (when (not order)
@@ -146,7 +164,8 @@
 			,(when (plist-get file :seen)
 			   (let ((seen (car (last (plist-get file :seen) 2)))
 				 (length (plist-get file :length)))
-			     (if (> (/ seen length) 0.9)
+			     (if (or (plist-get file :directoryp)
+				     (> (/ seen length) 0.9))
 				 "#5050ff"
 			       "#e0e0e0")))))
 	       (if (plist-get file :directoryp) "/" "")
