@@ -138,8 +138,10 @@
   (let ((stats (movie-get-stats dir))
 	data max)
     (when stats
-      (when (assoc "Seen" stats)
+      (when (equal (cdr (assoc "Status" stats)) "seen")
 	(setq data (list :seen '(t))))
+      (when (equal (cdr (assoc "Status" stats)) "mostly-seen")
+	(setq data (list :mostly-seen '(t))))
       (dolist (track (cdr (assoc 'tracks stats)))
 	(when (or (not max)
 		  (> (plist-get (cdr track) :length)
@@ -168,7 +170,7 @@
 			     (if (or (plist-get file :directoryp)
 				     (> (/ seen length) 0.9))
 				 "#5050ff"
-			       "#e0e0e0")))))
+			       "#ff5050")))))
 	       (if (plist-get file :directoryp)
 		   ""
 		 (format
@@ -791,9 +793,9 @@
 	  (rename-file file new))))
     (delete-directory sub)))
 
-(defun movie-mark-as-seen ()
+(defun movie-mark-as-seen (&optional mostly)
   "Mark the current DVD directory as seen in the stats file."
-  (interactive)
+  (interactive "P")
   (let ((stats (expand-file-name "stats" default-directory)))
     (unless (file-exists-p stats)
       (error "No stats file"))
@@ -803,8 +805,10 @@
 	  (delete-region (match-beginning 0) (progn (forward-line 1) (point)))
 	(search-forward "\n\n")
 	(forward-line -1))
-      (insert "Status: seen\n")
-      (insert (format "Seen: %s\n" (format-time-string "%Y%m%dT%H%M%S"))))
+      (insert "Status: %s\n"
+	      (if mostly "mostly-seen" "seen"))
+      (unless mostly
+	(insert (format "Seen: %s\n" (format-time-string "%Y%m%dT%H%M%S")))))
     (message "Marked as seen")))
 
 (defun movie-update-stats-position (file)
