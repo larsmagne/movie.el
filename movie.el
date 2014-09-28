@@ -104,6 +104,22 @@
 	  (push (cons 'tracks (nreverse tracks)) data))))
     (nreverse data)))	  
 
+(defun movie-list-parts (match)
+  "Limit the buffer to matching genres."
+  (interactive
+   (list
+    (completing-read "Match: " (append movie-genres
+				       (list "unstats")))))
+  (movie-browse
+   default-directory movie-order
+   (if (equal match "unstats")
+       (lambda (stats)
+	 (null stats))
+     `(lambda (stats)
+	(let ((genres (cdr (assoc "Genre" stats))))
+	  (and genres
+	       (member ,match (split-string genres ","))))))))
+
 (defun movie-get-files (directory &optional match)
   (let ((files (directory-files directory t))
 	(data nil)
@@ -113,8 +129,12 @@
       (setq atts (file-attributes file))
       (when (and
 	     (or (null match)
-		 (let ((case-fold-search t))
-		   (string-match match file)))
+		 (and (stringp match)
+		      (let ((case-fold-search t))
+			(string-match match file)))
+		 (and (functionp match)
+		      (eq (car atts) t)
+		      (funcall match (movie-get-stats file))))
 	     (not (string-match "\\.png\\'\\|/stats\\|/seen-date" file))
 	     (or (and (eq (car atts) nil)
 		      (string-match movie-files (file-name-nondirectory file)))
@@ -142,6 +162,8 @@
 	(setq data (list :seen '(t))))
       (when (equal (cdr (assoc "Status" stats)) "mostly-seen")
 	(setq data (list :mostly-seen '(t))))
+      (when (assoc "Genre" stats)
+	(nconc data (list :genre (cdr (assoc "Genre" stats)))))
       (dolist (track (cdr (assoc 'tracks stats)))
 	(when (or (not max)
 		  (> (plist-get (cdr track) :length)
@@ -160,17 +182,18 @@
     (let ((subtitles (length (plist-get file :subtitles))))
       (insert (format
 	       " %s%s\n"
-	       (if (not (plist-get file :seen))
+	       (if (and (not (plist-get file :seen))
+			(not (plist-get file :mostly-seen)))
 		   (file-name-nondirectory (plist-get file :file))
 		 (propertize
 		  (file-name-nondirectory (plist-get file :file))
 		  'face `(:foreground
 			  ,(let ((seen (car (last (plist-get file :seen) 2)))
-				(length (plist-get file :length)))
-			    (if (or (plist-get file :directoryp)
-				    (> (/ seen length) 0.9))
-				"#5050ff"
-			      "#ff5050")))))
+				 (length (plist-get file :length)))
+			     (if (or (plist-get file :directoryp)
+				     (> (/ seen length) 0.9))
+				 "#5050ff"
+			       "#ff5050")))))
 	       (if (plist-get file :directoryp)
 		   ""
 		 (format
@@ -268,6 +291,7 @@
     (define-key map "}" 'scroll-down-command)
     (define-key map "'" 'scroll-up-command)
     (define-key map "/" 'movie-limit)
+    (define-key map "m" 'movie-list-parts)
     map))
 
 (defvar movie-mode nil
@@ -325,7 +349,7 @@
 	       (setq options
 		     (movie-add-vf options "crop=700:420")))
 	      ((eq char ?i)
-	       (setq options (movie-add-vf options "pp=lb")))
+	       (setq options (movie-add-vf options "pp=li")))
 	      ((eq char ?x)
 	       (setq options (append options (list "-vo" "xv"))))
 	      ((eq char ?a)
@@ -735,6 +759,12 @@
   (and (string-match "\\([0-9.]+\\)s" string)
        (string-to-number (match-string 1 string))))
 
+(defvar movie-genres
+  '("art" "western" "sci-fi" "gay" "european" "indie"
+    "oldie" "musical" "comedy" "music" "entertainment"
+    "mst3k" "horror" "documentary"
+    "crime"))
+
 (defun movie-make-stats-file (directory &optional no-directory)
   "Create a stats file for DIRECTORY."
   (interactive "dDirectory: \nP")
@@ -754,10 +784,7 @@
 	"Genre: %s\nRecorded: %s\n"
 	(completing-read
 	 "Genre: "
-	 '("art" "western" "sci-fi" "gay" "european" "indie"
-	   "oldie" "musical" "comedy" "music" "entertainment"
-	   "mst3k" "horror" "documentary"
-	   "crime"))
+	 movie-genres)
 	(replace-regexp-in-string
 	 "[-:]" ""
 	 (format-time-string
