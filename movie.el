@@ -56,6 +56,9 @@
     )
   "Command to play a file.")
 
+(defvar movie-genres nil
+  "A list of strings that are names of genres.")
+
 (defvar movie-crop '("-vf" "crop=700:420")
   "Parameters to crop a 4:3 aspect ratio program.")
 
@@ -758,12 +761,6 @@
 (defun movie-mkv-length (string)
   (and (string-match "\\([0-9.]+\\)s" string)
        (string-to-number (match-string 1 string))))
-
-(defvar movie-genres
-  '("art" "western" "sci-fi" "gay" "european" "indie"
-    "oldie" "musical" "comedy" "music" "entertainment"
-    "mst3k" "horror" "documentary"
-    "crime"))
 
 (defun movie-make-stats-file (directory &optional no-directory)
   "Create a stats file for DIRECTORY."
