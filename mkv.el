@@ -27,6 +27,7 @@
 
 (require 'cl)
 (require 'dom)
+(require 'shr)
 
 (defun mkv-information (file)
   "Output pertinent information about MKV FILE."
@@ -37,21 +38,26 @@
     (mkv-parse)))
 
 (defun mkv-parse ()
-  (list 'mkv-data (loop while (not (eobp))
+  (cons 'mkv-data (loop while (not (eobp))
 			collect (mkv-parse-1))))
 
 (defun mkv-parse-1 ()
   (let* ((line (mkv-parse-line))
 	 (level (car line)))
     (forward-line 1)
-    (list (intern (replace-regexp-in-string " " "-" (cadr line)) obarray)
+    (cons (intern (replace-regexp-in-string
+		   "[^-a-zA-Z90-9_]" "-" (cadr line)) obarray)
 	  (loop while (not (eobp))
 		for line = (mkv-parse-line)
 		while (= (1+ level) (car line))
 		collect (if (null (nth 2 line))
 			    (mkv-parse-1)
 			  (forward-line 1)
-			  (cons (intern (concat ":" (replace-regexp-in-string " " "-" (cadr line))) obarray)
+			  (cons (intern (concat ":"
+						(replace-regexp-in-string
+						 "[^-a-zA-Z90-9_]" "-"
+						 (cadr line)))
+					obarray)
 				(nth 2 line)))))))
 
 (defun mkv-parse-line ()
