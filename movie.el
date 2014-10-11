@@ -143,7 +143,7 @@
 		      (string-match movie-files (file-name-nondirectory file)))
 		 (and (eq (car atts) t)
 		      (not (member (file-name-nondirectory file)
-				   '("." ".."))))))
+				   '("." ".." "lost+found"))))))
 	(setq track (assoc (file-name-nondirectory file)
 			   (cdr (assoc 'tracks stats))))
 	(push `(:file ,file
@@ -460,7 +460,15 @@
   (interactive (list (movie-current-file)))
   (when (y-or-n-p (format "Really delete %s? " file))
     (if (file-directory-p file)
-	(delete-directory file)
+	(progn
+	  (let ((files (directory-files file t)))
+	    (cond
+	     ((= (length files) 2)
+	      (delete-directory file))
+	     ((string-match "^/tv/torrent" file)
+	      (delete-directory file t))
+	     (t
+	      (error "Directory not empty")))))
       (delete-file file)
       (let ((png (concat file ".png")))
 	(when (file-exists-p png)
@@ -809,18 +817,27 @@
   "Move files from (2)-like subdirectories to the current directory."
   (interactive)
   (dolist (sub (directory-files default-directory t " ([0-9]+)$"))
-    (dolist (file (directory-files sub t))
-      (let ((new (expand-file-name (file-name-nondirectory file)
-				   default-directory)))
-	(when (and (file-regular-p file)
-		   (not (file-exists-p new)))
-	  (rename-file file new))))
-    (delete-directory sub)))
+    (let ((part (and (string-match " ([0-9]+)$" sub)
+		     (match-string 0 sub))))
+      (dolist (file (directory-files sub t))
+	(when (file-regular-p file)
+	  (let ((leaf (file-name-nondirectory file)))
+	    (unless (search part leaf)
+	      (setq leaf (replace-regexp-in-string
+			  ".mkv$" (concat part ".mkv") leaf)))
+	    (let ((new (expand-file-name leaf default-directory)))
+	      (unless (file-exists-p new)
+		(rename-file file new))))))
+      (delete-directory sub))))
 
-(defun movie-mark-as-seen (&optional mostly)
+(defun movie-mark-as-seen (&optional mostly file)
   "Mark the current DVD directory as seen in the stats file."
-  (interactive "P")
-  (let ((stats (expand-file-name "stats" default-directory)))
+  (interactive (list current-prefix-arg (movie-current-file)))
+  (let ((stats (expand-file-name
+		"stats"
+		(if (file-directory-p file)
+		    file
+		  default-directory))))
     (unless (file-exists-p stats)
       (error "No stats file"))
     (with-temp-file stats
