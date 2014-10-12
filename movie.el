@@ -879,6 +879,18 @@
 	      (dolist (track (cdr (assoc 'tracks stats)))
 		(insert (format "%S\n" track))))))))))
 
+(defun movie-create-unseen-directory ()
+  "Create a directory of symlinks to the unseen films for easier rsyncing."
+  (interactive)
+  (dolist (file (directory-files "/tv/unseen" t))
+    (when (file-symlink-p file)
+      (delete-file file)))
+  (dolist (movie (movie-get-files "/mdvd"))
+    (unless (plist-get movie :seen)
+      (let ((file (plist-get movie :file)))
+	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
+						   "/tv/unseen"))))))
+
 (provide 'movie)
 
 ;;; movie.el ends here
