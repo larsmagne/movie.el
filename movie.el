@@ -234,9 +234,11 @@
   (if (< seconds (* 60 60))
       (format "%02d:%02dm" (truncate (/ seconds 60))
 	      (mod seconds 60))
-    (format "%02d:%02dh"
-	    (truncate (/ seconds 60 60))
-	    (mod (/ seconds 60) 60))))
+    (propertize
+     (format "%02d:%02dh"
+	     (truncate (/ seconds 60 60))
+	     (mod (/ seconds 60) 60))
+     'face `(:background "#000080"))))
 
 (defun movie-limit (match)
   "Limit the buffer to matching files."
