@@ -224,7 +224,7 @@
 	(when (> (or (plist-get file :length) 0)
 		 (* 30 60))
 	  (add-face-text-property (line-beginning-position)
-				  (line-end-position)
+				  (1+ (line-end-position))
 				  '(:background "#006000")
 				  t))
 	(let ((png (or (plist-get file :image)
