@@ -74,8 +74,7 @@
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
   (interactive "DDirectory: ")
-  (setq directory (file-truename directory)
-	match (or match movie-limit))
+  (setq directory (file-truename directory))
   (let ((files (movie-get-files directory match)))
     (when (null order)
       (setq order 'alphabetical))
@@ -112,16 +111,21 @@
   (interactive
    (list
     (completing-read "Match: " (append movie-genres
-				       (list "unstats")))))
+				       (list "unstats" "unseen")))))
   (movie-browse
    default-directory movie-order
-   (if (equal match "unstats")
-       (lambda (stats)
-	 (null stats))
+   (cond
+    ((equal match "unstats")
+     (lambda (stats)
+       (null stats)))
+    ((equal match "unseen")
+     (lambda (stats)
+       (null (assoc "Seen" stats))))
+    (t
      `(lambda (stats)
 	(let ((genres (cdr (assoc "Genre" stats))))
 	  (and genres
-	       (member ,match (split-string genres ","))))))))
+	       (member ,match (split-string genres ",")))))))))
 
 (defun movie-get-files (directory &optional match)
   (let ((files (directory-files directory t))
@@ -244,13 +248,17 @@
   (setq movie-limit match)
   (movie-browse default-directory movie-order))
 
+(defun movie-sortable-name (name)
+  (replace-regexp-in-string "/\\(the\\|a\\) " "/"
+			    (downcase name)))
+
 (defun movie-sort (files order)
   (let ((predicate
 	 (cond
 	  ((eq order 'alphabetical)
 	   (lambda (f1 f2)
-	     (string< (downcase (plist-get f1 :file))
-		      (downcase (plist-get f2 :file)))))
+	     (string< (movie-sortable-name (plist-get f1 :file))
+		      (movie-sortable-name (plist-get f2 :file)))))
 	  ((eq order 'chronological)
 	   (lambda (f1 f2)
 	     (time-less-p (plist-get f1 :time)
@@ -817,14 +825,13 @@
   "Move files from (2)-like subdirectories to the current directory."
   (interactive)
   (dolist (sub (directory-files default-directory t " ([0-9]+)$"))
-    (let ((part (and (string-match " ([0-9]+)$" sub)
+    (let ((part (and (string-match "([0-9]+)$" sub)
 		     (match-string 0 sub))))
       (dolist (file (directory-files sub t))
 	(when (file-regular-p file)
 	  (let ((leaf (file-name-nondirectory file)))
 	    (unless (search part leaf)
-	      (setq leaf (replace-regexp-in-string
-			  ".mkv$" (concat part ".mkv") leaf)))
+	      (setq leaf (concat part " " leaf)))
 	    (let ((new (expand-file-name leaf default-directory)))
 	      (unless (file-exists-p new)
 		(rename-file file new))))))
