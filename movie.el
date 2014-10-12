@@ -187,37 +187,44 @@
   (setq files (movie-sort files order))
   (dolist (file files)
     (let ((subtitles (length (plist-get file :subtitles))))
-      (insert (format
-	       " %s%s\n"
-	       (if (and (not (plist-get file :seen))
-			(not (plist-get file :mostly-seen)))
-		   (file-name-nondirectory (plist-get file :file))
-		 (propertize
-		  (file-name-nondirectory (plist-get file :file))
-		  'face `(:foreground
-			  ,(let ((seen (car (last (plist-get file :seen) 2)))
-				 (length (plist-get file :length)))
-			     (if (or (plist-get file :directoryp)
-				     (> (/ seen length) 0.9))
-				 "#5050ff"
-			       "#ff5050")))))
-	       (if (plist-get file :directoryp)
-		   ""
-		 (format
-		  " (%s)%s%s"
-		  (if (plist-get file :length)
-		      (movie-format-length (plist-get file :length))
-		    (round
-		     (/ (or (plist-get file :size) -1) 1024 1024)))
-		  (if (> (length (plist-get file :audio-tracks)) 1)
-		      (format " %s" (mapconcat
-				     'identity
-				     (plist-get file :audio-tracks) ","))
-		    "")
-		  (if (> subtitles 0)
-		      (format " %s sub%s" subtitles
-			      (if (= subtitles 1) "" "s"))
-		    "")))))
+      (insert
+       (propertize
+	(format
+	 " %s%s\n"
+	 (if (and (not (plist-get file :seen))
+		  (not (plist-get file :mostly-seen)))
+	     (file-name-nondirectory (plist-get file :file))
+	   (propertize
+	    (file-name-nondirectory (plist-get file :file))
+	    'face `(:foreground
+		    ,(let ((seen (car (last (plist-get file :seen) 2)))
+			   (length (plist-get file :length)))
+		       (if (or (plist-get file :directoryp)
+			       (> (/ seen length) 0.9))
+			   "#5050ff"
+			 "#ff5050")))))
+	 (if (plist-get file :directoryp)
+	     ""
+	   (format
+	    " (%s)%s%s"
+	    (if (plist-get file :length)
+		(movie-format-length (plist-get file :length))
+	      (round
+	       (/ (or (plist-get file :size) -1) 1024 1024)))
+	    (if (> (length (plist-get file :audio-tracks)) 1)
+		(format " %s" (mapconcat
+			       'identity
+			       (plist-get file :audio-tracks) ","))
+	      "")
+	    (if (> subtitles 0)
+		(format " %s sub%s" subtitles
+			(if (= subtitles 1) "" "s"))
+	      ""))))
+	'face `(:background
+		,(if (> (or (plist-get file :length) 0)
+			(* 30 60))
+		     "#000080"
+		   "#000000"))))
       (save-excursion
 	(forward-line -1)
 	(let ((png (or (plist-get file :image)
@@ -234,11 +241,9 @@
   (if (< seconds (* 60 60))
       (format "%02d:%02dm" (truncate (/ seconds 60))
 	      (mod seconds 60))
-    (propertize
      (format "%02d:%02dh"
 	     (truncate (/ seconds 60 60))
-	     (mod (/ seconds 60) 60))
-     'face `(:background "#000080"))))
+	     (mod (/ seconds 60) 60))))
 
 (defun movie-limit (match)
   "Limit the buffer to matching files."
