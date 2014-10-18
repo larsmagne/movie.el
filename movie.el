@@ -456,7 +456,7 @@
 				 player)))))
   (if (not movie-picture-directory)
       (apply 'call-process (car player) nil
-	     (current-buffer)
+	     (get-buffer-create "*mplayer*")
 	     nil (cdr player))
     (let* ((file (file-name-nondirectory
 		  (directory-file-name
