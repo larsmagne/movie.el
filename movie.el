@@ -500,7 +500,7 @@
 	    (cond
 	     ((= (length files) 2)
 	      (delete-directory file))
-	     ((string-match "^/tv/torrent" file)
+	     ((string-match "/torrent" file)
 	      (delete-directory file t))
 	     (t
 	      (error "Directory not empty")))))
