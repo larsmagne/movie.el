@@ -399,17 +399,20 @@
   (movie-play-1 (append movie-player (list file))))
 
 (defun movie-find-position (file &optional no-skip)
-  (or (movie-find-position-from-mplayer file no-skip)
-      (movie-find-position-from-stats file no-skip)))
+  (or (movie-find-position-from-stats file no-skip)
+      (movie-find-position-from-mplayer file no-skip)))
 
 (defun movie-find-position-from-stats (file &optional no-skip)
   (let ((pos
-	 (car (plist-get (cdr
-			  (assoc
-			   (file-name-nondirectory file)
-			   (cdr (assoc 'tracks (movie-get-stats
-						(file-name-directory file))))))
-			 :seen))))
+	 (car
+	  (last
+	   (plist-get (cdr
+		       (assoc
+			(file-name-nondirectory file)
+			(cdr (assoc 'tracks (movie-get-stats
+					     (file-name-directory file))))))
+		      :seen)
+	   2))))
     (cond
      ((null pos)
       nil)
@@ -891,7 +894,7 @@
 	 (stats (movie-get-stats dir))
 	 (stats-file (expand-file-name "stats" dir)))
     (when stats
-      (let ((position (movie-find-position file t))
+      (let ((position (movie-find-position-from-mplayer file t))
 	    (track (assoc (file-name-nondirectory file)
 			  (cdr (assoc 'tracks stats)))))
 	(when (and position track)
