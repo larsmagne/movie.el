@@ -399,8 +399,8 @@
   (movie-play-1 (append movie-player (list file))))
 
 (defun movie-find-position (file &optional no-skip)
-  (or (movie-find-position-from-stats file no-skip)
-      (movie-find-position-from-mplayer file no-skip)))
+  (or (movie-find-position-from-mplayer file no-skip)
+      (movie-find-position-from-stats file no-skip)))
 
 (defun movie-find-position-from-stats (file &optional no-skip)
   (let ((pos
@@ -420,7 +420,7 @@
 
 (defun movie-find-position-from-mplayer (file &optional no-skip)
   (when (and (file-exists-p "~/.mplayer.positions")
-	     (string-match "^/tv\\|^/dvd\\|http:" file)
+	     (string-match "/tv/\\|/dvd/\\|http:" file)
 	     (not (equal file "/tv/live")))
     (with-temp-buffer
       (insert-file-contents "~/.mplayer.positions")
@@ -456,7 +456,7 @@
 				 player)))))
   (if (not movie-picture-directory)
       (apply 'call-process (car player) nil
-	     (current-buffer)
+	     (get-buffer-create "*mplayer*")
 	     nil (cdr player))
     (let* ((file (file-name-nondirectory
 		  (directory-file-name
@@ -500,7 +500,7 @@
 	    (cond
 	     ((= (length files) 2)
 	      (delete-directory file))
-	     ((string-match "^/tv/torrent" file)
+	     ((string-match "/torrent" file)
 	      (delete-directory file t))
 	     (t
 	      (error "Directory not empty")))))
