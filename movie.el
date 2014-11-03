@@ -791,13 +791,13 @@
   "Output pertinent information about MKV FILE."
   (interactive "fMKV File: ")
   (let* ((dom (mkv-information file))
-	 (subtitles (loop for track in (dom-by-name dom 'A-track)
+	 (subtitles (loop for track in (dom-by-tag dom 'A-track)
 			  when (equal (dom-attr track :Track-type) "subtitles")
 			  collect (dom-attr track :Language))))
     
     `(:length ,(movie-mkv-length
-		(dom-attr (dom-by-name dom 'Segment-information) :Duration))
-	      :audio-tracks ,(loop for track in (dom-by-name dom 'A-track)
+		(dom-attr (dom-by-tag dom 'Segment-information) :Duration))
+	      :audio-tracks ,(loop for track in (dom-by-tag dom 'A-track)
 				   when (equal (dom-attr track :Track-type) "audio")
 				   collect (or (dom-attr track :Language)
 					       (dom-attr track :Name)))
