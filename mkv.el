@@ -38,27 +38,32 @@
     (mkv-parse)))
 
 (defun mkv-parse ()
-  (cons 'mkv-data (loop while (not (eobp))
-			collect (mkv-parse-1))))
+  (apply 'dom-node 'mkv-data nil
+	 (loop while (not (eobp))
+	       collect (mkv-parse-1))))
 
 (defun mkv-parse-1 ()
   (let* ((line (mkv-parse-line))
-	 (level (car line)))
+	 (level (car line))
+	 (tag (intern (replace-regexp-in-string
+		       "[^-a-zA-Z90-9_]" "-" (cadr line))
+		      obarray))
+	 attributes children)
     (forward-line 1)
-    (cons (intern (replace-regexp-in-string
-		   "[^-a-zA-Z90-9_]" "-" (cadr line)) obarray)
-	  (loop while (not (eobp))
-		for line = (mkv-parse-line)
-		while (= (1+ level) (car line))
-		collect (if (null (nth 2 line))
-			    (mkv-parse-1)
-			  (forward-line 1)
-			  (cons (intern (concat ":"
-						(replace-regexp-in-string
-						 "[^-a-zA-Z90-9_]" "-"
-						 (cadr line)))
-					obarray)
-				(nth 2 line)))))))
+    (while (and (not (eobp))
+		(= (1+ level) (car (setq line (mkv-parse-line)))))
+      (if (null (nth 2 line))
+	  (push (mkv-parse-1) children)
+	(forward-line 1)
+	(push
+	 (cons (intern (concat ":"
+			       (replace-regexp-in-string
+				"[^-a-zA-Z90-9_]" "-"
+				(cadr line)))
+		       obarray)
+	       (nth 2 line))
+	 attributes)))
+    (apply 'dom-node tag (nreverse attributes) (nreverse children))))
 
 (defun mkv-parse-line ()
   (and (looking-at "\\([+| ]+\\)\\([^:\n]+\\)\\(: \\(.+\\)\\)?")
@@ -66,7 +71,6 @@
 	     (match-string 2)
 	     (match-string 4))))
   
-
 (provide 'mkv)
 
 ;;; mkv.el ends here
