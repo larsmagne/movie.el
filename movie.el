@@ -923,33 +923,4 @@
 
 (provide 'movie)
 
-(defun ensure-left-to-right-string (string)
-  (let ((prev (get-char-code-property (aref string 0) 'bidi-class))
-	(start 0)
-	(pos 0)
-	(bits nil))
-    (while (< pos (length string))
-      (setq current (get-char-code-property (aref string pos) 'bidi-class))
-      (when (or (and (eq prev 'L)
-		     (memq current '(R AL)))
-		(and (memq prev '(R AL))
-		     (eq current 'L)))
-	(push (substring string start pos) bits)
-	(setq start pos))
-      (when (memq current '(L R AL))
-	(setq prev current))
-      (cl-incf pos))
-    (push (substring string start pos) bits)
-    (mapconcat
-     (lambda (bit)
-       (if (cl-notany (lambda (char)
-			(memq (get-char-code-property char 'bidi-class) '(R AL)))
-		      bit)
-	   ;; Wrap the string in LRO and PDF.
-	   (concat (string ?\x202d) bit (string ?\x202C))
-	 ;; And RLO and PDF for the right-to-left bits.
-	 (concat (string ?\x202e) bit (string ?\x202C))))
-     (nreverse bits)
-     "")))
-
 ;;; movie.el ends here
