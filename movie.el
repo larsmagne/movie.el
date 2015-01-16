@@ -366,6 +366,9 @@
 	      ((eq char ?c)
 	       (setq options
 		     (movie-add-vf options "crop=700:420")))
+	      ((eq char ?w)
+	       (setq options
+		     (movie-add-vf options "crop=700:300")))
 	      ((eq char ?i)
 	       (setq options (movie-add-vf options "pp=li")))
 	      ((eq char ?x)
@@ -473,8 +476,8 @@
 	(apply 'call-process (car player) nil
 	       (current-buffer)
 	       nil (cdr player))
-	(movie-copy-images-higher-than highest dir)
-	(movie-update-stats-position (car (last player)))))))
+	(movie-copy-images-higher-than highest dir))))
+  (movie-update-stats-position (car (last player))))
 
 (defun movie-find-highest-image ()
   (car
