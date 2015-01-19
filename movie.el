@@ -256,7 +256,7 @@
   (movie-browse default-directory movie-order))
 
 (defun movie-sortable-name (name)
-  (replace-regexp-in-string "/\\(the\\|a\\) " "/"
+  (replace-regexp-in-string "/\\(the\\|a\\)[ .]" "/"
 			    (downcase name)))
 
 (defun movie-sort (files order)
