@@ -127,6 +127,11 @@
 	  (and genres
 	       (member ,match (split-string genres ",")))))))))
 
+(defun movie-list-by-year ()
+  "List the movies by year."
+  (interactive)
+  (movie-browse default-directory 'year movie-limit))
+
 (defun movie-get-files (directory &optional match)
   (let ((files (directory-files directory t))
 	(data nil)
@@ -154,6 +159,11 @@
 		      :time ,(nth 5 atts)
 		      :size ,(nth 7 atts)
 		      :directoryp ,(nth 0 atts)
+		      :year ,(let ((year (cdr (assoc "Year"
+						     (movie-get-stats file)))))
+			       (if year
+				   (string-to-number year)
+				 0))
 		      ,@(when track
 			  (cdr track))
 		      ,@(when (nth 0 atts)
@@ -187,6 +197,8 @@
   (setq files (movie-sort files order))
   (dolist (file files)
     (let ((subtitles (length (plist-get file :subtitles))))
+      (when (eq order 'year)
+	(insert (format "%04d " (or (plist-get file :year) 0))))
       (insert
        (format
 	" %s%s\n"
@@ -270,6 +282,10 @@
 	   (lambda (f1 f2)
 	     (time-less-p (plist-get f1 :time)
 			  (plist-get f2 :time))))
+	  ((eq order 'year)
+	   (lambda (f1 f2)
+	     (< (or (plist-get f1 :year) 0)
+		(or (plist-get f2 :year) 0))))
 	  (t
 	   (error "No such order %s" order)))))
     (sort files predicate)))
@@ -310,6 +326,7 @@
     (define-key map "'" 'scroll-up-command)
     (define-key map "/" 'movie-limit)
     (define-key map "m" 'movie-list-parts)
+    (define-key map "Y" 'movie-list-by-year)
     map))
 
 (defvar movie-mode nil
