@@ -163,7 +163,7 @@
 						     (movie-get-stats file)))))
 			       (if year
 				   (string-to-number year)
-				 0))
+				 9999))
 		      ,@(when track
 			  (cdr track))
 		      ,@(when (nth 0 atts)
@@ -198,7 +198,7 @@
   (dolist (file files)
     (let ((subtitles (length (plist-get file :subtitles))))
       (when (eq order 'year)
-	(insert (format "%04d " (or (plist-get file :year) 0))))
+	(insert (format "%04d " (or (plist-get file :year) 9999))))
       (insert
        (format
 	" %s%s\n"
