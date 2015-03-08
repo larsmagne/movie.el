@@ -74,6 +74,13 @@
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
   (interactive "DDirectory: ")
+  (when (and (called-interactively-p 'interactive)
+	     (null match)
+	     (equal (file-name-nondirectory
+		     (directory-file-name directory)) "dvd"))
+    (setq match 
+	  (lambda (stats)
+	    (null (assoc "Seen" stats)))))
   (setq directory (file-truename directory))
   (let ((files (movie-get-files directory match)))
     (when (null order)
@@ -111,13 +118,15 @@
   (interactive
    (list
     (completing-read "Match: " (append movie-genres
-				       (list "nostats" "unseen")))))
+				       (list "nostats" "unseen" "all")))))
   (movie-browse
    default-directory movie-order
    (cond
     ((equal match "nostats")
      (lambda (stats)
        (null stats)))
+    ((equal match "all")
+     nil)
     ((equal match "unseen")
      (lambda (stats)
        (null (assoc "Seen" stats))))
@@ -558,7 +567,6 @@
 (defun movie-rescan (&optional order)
   "Update the current buffer."
   (interactive)
-  (setq movie-limit nil)
   (movie-rescan-1 order))
 
 (defun movie-rescan-1 (&optional order)
