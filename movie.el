@@ -94,6 +94,7 @@
     (unless (string-match "/$" directory)
       (setq directory (concat directory "/")))
     (setq default-directory directory)
+    (setq-local mode-line-misc-info (movie-buffer-identification directory))
     (goto-char (point-min))))
 
 (defun movie-get-stats (directory)
@@ -382,6 +383,13 @@
 	'("Movie: " default-directory))
   (setq truncate-lines t)
   (run-hooks 'movie-mode-hook))
+
+(defun movie-buffer-identification (dir)
+  (let ((stats (movie-get-stats dir)))
+    (if (not stats)
+	""
+      (format "%s %s" (cdr (assoc "Year" stats))
+	      (cdr (assoc "Director" stats))))))
 
 (defun movie-find-file (file)
   "Find or play the file under point."
