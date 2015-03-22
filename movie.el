@@ -482,7 +482,7 @@
 
 (defun movie-find-position-from-mplayer (file &optional no-skip)
   (when (and (file-exists-p "~/.mplayer.positions")
-	     (string-match "/tv/\\|/dvd/\\|http:" file)
+	     (string-match "/tv/\\|/dvd/\\|http:\\|^/run" file)
 	     (not (equal file "/tv/live")))
     (with-temp-buffer
       (insert-file-contents "~/.mplayer.positions")
