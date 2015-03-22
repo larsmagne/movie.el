@@ -26,7 +26,7 @@
 ;;; Code:
 
 (require 'pvr)
-(load "time-date.el")
+(require 'time-date)
 (require 'imdb)
 (require 'mkv)
 
