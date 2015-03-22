@@ -453,7 +453,9 @@
 
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
-  (movie-play-1 (append movie-player (list file))))
+  (if (movie-interlaced-p file)
+      (movie-play-1 (append (movie-add-vf movie-player "pp=li") (list file)))
+    (movie-play-1 (append movie-player (list file)))))
 
 (defun movie-find-position (file &optional no-skip)
   (or (movie-find-position-from-stats file no-skip)
@@ -864,6 +866,12 @@
   (and (string-match "\\([0-9.]+\\)s" string)
        (string-to-number (match-string 1 string))))
 
+(defun movie-interlaced-p (file)
+  (with-temp-buffer
+    (call-process "mediainfo" nil t nil file)
+    (goto-char (point-min))
+    (re-search-forward "^Scan type.*Interlace" nil t)))
+
 (defun movie-make-stats-file (directory &optional no-directory)
   "Create a stats file for DIRECTORY."
   (interactive "dDirectory: \nP")
@@ -903,6 +911,8 @@
 		   "%S\n"
 		   `(,(file-name-nondirectory file)
 		     ,@(movie-get-mkv-info file)
+		     ,@(when (movie-interlaced-p file)
+			 `(list :interlaced t))
 		     ,@(when position
 			 `(:seen (,(string-to-number position)
 				  "19700101T010000")))))))))))
