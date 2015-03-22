@@ -443,6 +443,7 @@
   (let ((old (member "-vf" options)))
     (if (not old)
 	(append options (list "-vf" vf))
+      
       (setcar (cdr old)
 	      (concat (cadr old) "," vf))
       options)))
@@ -867,11 +868,10 @@
        (string-to-number (match-string 1 string))))
 
 (defun movie-interlaced-p (file)
-  (and (string-match "/dvd/" file)
-       (with-temp-buffer
-	 (call-process "mediainfo" nil t nil file)
-	 (goto-char (point-min))
-	 (re-search-forward "^Scan type.*Interlace" nil t))))
+  (with-temp-buffer
+    (call-process "mediainfo" nil t nil file)
+    (goto-char (point-min))
+    (re-search-forward "^Scan type.*Interlace" nil t)))
 
 (defun movie-make-stats-file (directory &optional no-directory)
   "Create a stats file for DIRECTORY."
