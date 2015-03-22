@@ -440,10 +440,9 @@
       (call-interactively command))))
 
 (defun movie-add-vf (options vf)
-  (let ((old (member "-vf" options)))
+  (let ((old (member "-vf" (copy-list options))))
     (if (not old)
 	(append options (list "-vf" vf))
-      
       (setcar (cdr old)
 	      (concat (cadr old) "," vf))
       options)))
