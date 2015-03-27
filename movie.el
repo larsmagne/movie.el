@@ -1,5 +1,5 @@
 ;;; movie.el --- playing movies
-;; Copyright (C) 2004-2011 Lars Magne Ingebrigtsen
+;; Copyright (C) 2004-2015 Lars Magne Ingebrigtsen
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: extensions, processes
