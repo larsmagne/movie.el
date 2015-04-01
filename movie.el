@@ -521,14 +521,22 @@
       (apply 'call-process (car player) nil
 	     (get-buffer-create "*mplayer*")
 	     nil (cdr player))
-    (let* ((file (file-name-nondirectory
-		  (directory-file-name
-		   (file-name-directory (file-truename (car (last player)))))))
+    (let* ((path (file-truename (car (last player))))
+	   (file (file-name-nondirectory
+		  (directory-file-name (file-name-directory path))))
 	   (dir (format "~/.emacs.d/screenshots/%s/" file))
 	   (highest (movie-find-highest-image)))
+      ;; For /dvd playing, we store the screenshots in the DVD
+      ;; directory.
+      (when (string-match "^/dvd/" path)
+	(setq dir (file-name-directory path))
+	(when (file-exists-p "~/.movie-current")
+	  (delete-file "~/.movie-current"))
+	(make-symbolic-link dir "~/.movie-current"))
       (unless (file-exists-p dir)
 	(make-directory dir t))
       (with-current-buffer (get-buffer-create "*mplayer*")
+	;; mplayer will store the screenshots in the currenct directory.
 	(setq default-directory dir)
 	(apply 'call-process (car player) nil
 	       (current-buffer)
