@@ -162,7 +162,7 @@
 		 (and (functionp match)
 		      (eq (car atts) t)
 		      (funcall match (movie-get-stats file))))
-	     (not (string-match "\\.png\\'\\|/stats\\|/seen-date" file))
+	     (not (string-match "\\.png\\'\\|\\.JPG\\'\\|/stats\\|/seen-date" file))
 	     (or (and (eq (car atts) nil)
 		      (string-match movie-files (file-name-nondirectory file)))
 		 (and (eq (car atts) t)
@@ -960,8 +960,7 @@
 	(forward-line -1))
       (insert (format "Status: %s\n"
 		      (if mostly "mostly-seen" "seen")))
-      (unless mostly
-	(insert (format "Seen: %s\n" (format-time-string "%Y%m%dT%H%M%S")))))
+      (insert (format "Seen: %s\n" (format-time-string "%Y%m%dT%H%M%S"))))
     (message "Marked as seen")))
 
 (defun movie-update-stats-position (file)
