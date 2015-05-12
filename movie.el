@@ -863,8 +863,7 @@
 
 (defun movie-direct-url (url)
   (with-temp-buffer
-    (call-process "youtube-dl" nil (current-buffer) nil
-		  "--prefer-insecure" "-g" url)
+    (call-process "youtube-dl" nil (current-buffer) nil "-g" url)
     (goto-char (point-min))
     (buffer-substring (point) (line-end-position))))
     
