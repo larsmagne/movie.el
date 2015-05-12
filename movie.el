@@ -40,20 +40,22 @@
 (defvar movie-player
   '("mplayer"
     "-vf" "screenshot"
-    "-framedrop" "-hardframedrop"
-    "-volume" "2"
+    ;;"-framedrop" "-hardframedrop"
+    "-volume" "100"
     "-vo" "xv"
     "-fs"
     "-quiet"
     "-softvol"
-    "-ao" "alsa:device=hw=0.8"
+    "-ao" "alsa:device=hw=2.0"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
     ;;"-ss" "1"
     ;; Pause at the end of files.
     ;;"-loop" "0"
     "-mouse-movements"
-    )
+    "-cache-min" "99"
+    "-cache" "10000"
+     )
   "Command to play a file.")
 
 (defvar movie-genres nil
@@ -119,7 +121,8 @@
   (interactive
    (list
     (completing-read "Match: " (append movie-genres
-				       (list "nostats" "unseen" "all")))))
+				       (list "nostats" "unseen" "all"
+					     "mostly-seen")))))
   (movie-browse
    default-directory movie-order
    (cond
@@ -131,6 +134,9 @@
     ((equal match "unseen")
      (lambda (stats)
        (null (assoc "Seen" stats))))
+    ((equal match "mostly-seen")
+     (lambda (stats)
+       (equal (cdr (assoc "Status" stats)) "mostly-seen")))
     (t
      `(lambda (stats)
 	(let ((genres (cdr (assoc "Genre" stats))))
@@ -293,8 +299,10 @@
   (movie-browse default-directory movie-order))
 
 (defun movie-sortable-name (name)
-  (replace-regexp-in-string "/\\(the\\|a\\)[ .]" "/"
-			    (downcase name)))
+  (replace-regexp-in-string
+   "['\"]" ""
+   (replace-regexp-in-string "/\\(the\\|a\\)[ .]" "/"
+			     (downcase name))))
 
 (defun movie-sort (files order)
   (let ((predicate
@@ -346,7 +354,6 @@
     (define-key map "r" 'movie-rename)
     (define-key map "l" 'movie-list-channels)
     (define-key map "-" 'movie-collapse)
-    (define-key map "o" 'movie-move-to-old)
     (define-key map "i" 'movie-mark-as-seen)
     (define-key map "a" 'movie-add-stats)
     (define-key map "." 'end-of-buffer)
@@ -436,6 +443,8 @@
 	       (setq command
 		     (lookup-key movie-mode-map (format "%c" char)))
 	       nil))))
+    (when (eq command 'movie-find-file)
+      (setq command 'movie-play-simple))
     (let ((movie-player (append movie-player options)))
       (call-interactively command))))
 
@@ -457,6 +466,10 @@
   (if (movie-interlaced-p file)
       (movie-play-1 (append (movie-add-vf movie-player "pp=li") (list file)))
     (movie-play-1 (append movie-player (list file)))))
+
+(defun movie-play-simple (file)
+  (interactive (list (movie-current-file)))
+  (movie-play-1 (append movie-player (list file))))
 
 (defun movie-find-position (file &optional no-skip)
   (or (movie-find-position-from-stats file no-skip)
@@ -482,20 +495,21 @@
       (format "%s" (max 0 (- pos 2)))))))
 
 (defun movie-find-position-from-mplayer (file &optional no-skip)
-  (when (and (file-exists-p "~/.mplayer.positions")
+  (when (and (file-exists-p "/tv/data/mplayer.positions")
 	     (string-match "/tv/\\|/dvd/\\|http:\\|^/run" file)
 	     (not (equal file "/tv/live")))
     (with-temp-buffer
-      (insert-file-contents "~/.mplayer.positions")
-      (goto-char (point-max))
-      (when (search-backward
-	     (concat " " (file-name-nondirectory file) "\n") nil t)
-	(beginning-of-line)
-	(and (looking-at "[0-9]+")
-	     ;; Skip backwards two seconds to avoid missing a second.
-	     (format "%d" (max (- (string-to-number (match-string 0))
-				  (if no-skip 0 2))
-			       0)))))))
+      (let ((coding-system-for-read 'iso-8859-1))
+	(insert-file-contents "/tv/data/mplayer.positions")
+	(goto-char (point-max))
+	(when (search-backward
+	       (concat " " (file-name-nondirectory file) "\n") nil t)
+	  (beginning-of-line)
+	  (and (looking-at "[0-9]+")
+	       ;; Skip backwards two seconds to avoid missing a second.
+	       (format "%d" (max (- (string-to-number (match-string 0))
+				    (if no-skip 0 2))
+				 0))))))))
   
 (defun movie-play-1 (player)
   ;; Kill off the glibc malloc checks that would make mplayer hang on
@@ -536,13 +550,28 @@
       (unless (file-exists-p dir)
 	(make-directory dir t))
       (with-current-buffer (get-buffer-create "*mplayer*")
-	;; mplayer will store the screenshots in the currenct directory.
+	(erase-buffer)
+	;; mplayer will store the screenshots in the current directory.
 	(setq default-directory dir)
 	(apply 'call-process (car player) nil
 	       (current-buffer)
 	       nil (cdr player))
+	(movie-update-mplayer-position (car (last player)))
 	(movie-copy-images-higher-than highest dir))))
   (movie-update-stats-position (car (last player))))
+
+(defun movie-update-mplayer-position (file)
+  (goto-char (point-max))
+  (when (re-search-backward "^@p \\([0-9.]+\\)" nil t)
+    (let ((position (match-string 1))
+	  (coding-system-for-read 'iso-8859-1)
+	  (coding-system-for-write 'iso-8859-1))
+      (with-temp-buffer
+	(insert-file-contents "/tv/data/mplayer.positions")
+	(goto-char (point-max))
+	(insert (format "%s %s\n" position (file-name-nondirectory file)))
+	(write-region (point-min) (point-max) "/tv/data/mplayer.positions"
+		      nil 'nomessage)))))
 
 (defun movie-find-highest-image ()
   (car
@@ -581,13 +610,6 @@
 	  (delete-file png))))
     (beginning-of-line)
     (movie-rescan-1)))
-
-(defun movie-move-to-old (file)
-  "Move the file or directory under point to the 'old' directory."
-  (interactive (list (movie-current-file)))
-  (rename-file file (expand-file-name "old"))
-  (beginning-of-line)
-  (movie-rescan-1))
 
 (defun movie-add-stats (dir &optional no-director)
   "Add a stats file to the directory under point."
@@ -695,7 +717,7 @@
 
 (defun movie-find-previous-vob (data)
   (with-temp-buffer
-    (insert-file-contents "~/.mplayer.positions")
+    (insert-file-contents "/tv/data/mplayer.positions")
     (goto-char (point-max))
     (when (re-search-backward (format " %s#[0-9]+#\\([0-9]+\\)\n"
 				      (regexp-quote (car data)))
@@ -713,16 +735,16 @@
     (movie-play (format "dvd://%d" (elt (cadr data) (1- number))))
     ;; And after playing the movie, update the data from the
     ;; .positions file to be this file ID.
-    (when (file-exists-p "~/.mplayer.positions")
+    (when (file-exists-p "/tv/data/mplayer.positions")
       (with-temp-buffer
-	(insert-file-contents "~/.mplayer.positions")
+	(insert-file-contents "/tv/data/mplayer.positions")
 	(goto-char (point-max))
 	(forward-line -1)
 	(when (looking-at "[0-9.]+ \\([0-9]+\\)\n")
 	  (goto-char (match-beginning 1))
 	  (delete-region (point) (line-end-position))
 	  (insert (file-name-nondirectory movie-file-id))
-	  (write-region (point-min) (point-max) "~/.mplayer.positions"
+	  (write-region (point-min) (point-max) "/tv/data/mplayer.positions"
 			nil 'silent))))))
 
 (defun movie-dvd-data ()
@@ -861,7 +883,6 @@
 	 (subtitles (loop for track in (dom-by-tag dom 'A-track)
 			  when (equal (dom-attr track :Track-type) "subtitles")
 			  collect (dom-attr track :Language))))
-    
     `(:length ,(movie-mkv-length
 		(dom-attr (dom-by-tag dom 'Segment-information) :Duration))
 	      :audio-tracks ,(loop for track in (dom-by-tag dom 'A-track)
