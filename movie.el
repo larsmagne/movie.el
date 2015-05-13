@@ -532,9 +532,13 @@
 			 (append (list "-ss" "1")
 				 player)))))
   (if (not movie-picture-directory)
-      (apply 'call-process (car player) nil
-	     (get-buffer-create "*mplayer*")
-	     nil (cdr player))
+      (with-current-buffer (get-buffer-create "*mplayer*")
+	(buffer-disable-undo)
+	(erase-buffer)
+	(apply 'call-process (car player) nil
+	       (current-buffer)
+	       nil (cdr player))
+	(movie-update-mplayer-position (car (last player))))
     (let* ((path (file-truename (car (last player))))
 	   (file (file-name-nondirectory
 		  (directory-file-name (file-name-directory path))))
@@ -550,6 +554,7 @@
       (unless (file-exists-p dir)
 	(make-directory dir t))
       (with-current-buffer (get-buffer-create "*mplayer*")
+	(buffer-disable-undo)
 	(erase-buffer)
 	;; mplayer will store the screenshots in the current directory.
 	(setq default-directory dir)
