@@ -243,8 +243,8 @@
 			  (length (plist-get file :length)))
 		      (if (or (plist-get file :directoryp)
 			      (> (/ seen length) 0.9))
-			  "#5050ff"
-			"#ff5050")))))
+			  "#000080"
+			"#800000")))))
 	(if (plist-get file :directoryp)
 	    ""
 	  (format
