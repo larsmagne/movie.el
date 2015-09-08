@@ -185,6 +185,7 @@
 			       (if year
 				   (string-to-number year)
 				 9999))
+		      :genre ,(cdr (assoc "Genre" (movie-get-stats file)))
 		      :director
 		      ,(let ((director (cdr (assoc "Director"
 					       (movie-get-stats file)))))
@@ -243,7 +244,9 @@
 			  (length (plist-get file :length)))
 		      (if (or (plist-get file :directoryp)
 			      (> (/ seen length) 0.9))
-			  "#000080"
+			  (if (plist-get file :directoryp)
+			      "#5050f0"
+			    "#000080")
 			"#800000")))))
 	(if (plist-get file :directoryp)
 	    ""
@@ -542,15 +545,18 @@
     (let* ((path (file-truename (car (last player))))
 	   (file (file-name-nondirectory
 		  (directory-file-name (file-name-directory path))))
-	   (dir (format "~/.emacs.d/screenshots/%s/" file))
+	   (dir (format "~/.emacs.d/screenshots/%s/"
+			(if (zerop (length file))
+			    "unknown"
+			  file)))
 	   (highest (movie-find-highest-image)))
       ;; For /dvd playing, we store the screenshots in the DVD
       ;; directory.
       (when (string-match "^/dvd/" path)
-	(setq dir (file-name-directory path))
-	(when (file-exists-p "~/.movie-current")
-	  (delete-file "~/.movie-current"))
-	(make-symbolic-link dir "~/.movie-current"))
+	(setq dir (file-name-directory path)))
+      (when (file-symlink-p "~/.movie-current")
+	(delete-file "~/.movie-current"))
+      (make-symbolic-link dir "~/.movie-current")
       (unless (file-exists-p dir)
 	(make-directory dir t))
       (with-current-buffer (get-buffer-create "*mplayer*")
@@ -868,11 +874,13 @@
 
 (defun movie-direct-url (url)
   (with-temp-buffer
-    (call-process "youtube-dl" nil (current-buffer) nil "-g" url)
+    (call-process "youtube-dl" nil (list (current-buffer) nil) nil "-g"
+		  "-f" "22" url)
     (goto-char (point-min))
     (buffer-substring (point) (line-end-position))))
     
 (defun movie-play-youtube (url &optional aspect)
+  (message "Got youtube url %s" url)
   (movie-play-1
    (append movie-player
 	   (and aspect
@@ -1015,7 +1023,10 @@
     (when (file-symlink-p file)
       (delete-file file)))
   (dolist (movie (movie-get-files "/dvd"))
-    (unless (plist-get movie :seen)
+    (when (and (not (plist-get movie :seen))
+	       (not (plist-get movie :mostly-seen))
+	       (plist-get movie :genre)
+	       (not (string-match "tv" (plist-get movie :genre))))
       (let ((file (plist-get movie :file)))
 	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
 						   "/tv/unseen"))))))
