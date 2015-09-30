@@ -226,7 +226,8 @@
       (when (eq order 'year)
 	(insert (format "%04d " (or (plist-get file :year) 9999))))
       (when (eq order 'director)
-	(insert (format "%-20s "
+	(insert (format "%4s %-20s "
+			(plist-get file :year)
 			(let ((string (or (plist-get file :director) "")))
 			  (if (> (length string) 20)
 			      (substring string 0 20)
@@ -328,6 +329,11 @@
 		      (or (plist-get f2 :director) 0))))
 	  (t
 	   (error "No such order %s" order)))))
+    (when (eq order 'director)
+      (setq files (sort files
+			(lambda (f1 f2)
+			  (time-less-p (or (plist-get f1 :year) 0)
+				       (or (plist-get f2 :year) 0))))))
     (sort files predicate)))
 
 (defvar movie-mode-map 
