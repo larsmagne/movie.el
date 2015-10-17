@@ -76,6 +76,8 @@
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
   (interactive "DDirectory: ")
+  ;; If called interactively in the /dvd directory, just display films
+  ;; that are unseen.
   (when (and (called-interactively-p 'interactive)
 	     (null match)
 	     (equal (file-name-nondirectory
@@ -97,7 +99,28 @@
       (setq directory (concat directory "/")))
     (setq default-directory directory)
     (setq-local mode-line-misc-info (movie-buffer-identification directory))
-    (goto-char (point-min))))
+    (movie-goto-logical-line)))
+
+(defun movie-goto-logical-line ()
+  "If we're in a dvd directory, go to the last film we've seen in it.
+Otherwise, goto the start of the buffer."
+  (interactive)
+  (let ((stats (movie-get-stats default-directory)))
+    (if (not stats)
+	(goto-char (point-min))
+      ;; We want to go to the last "seen" track.
+      (movie-goto-movie
+       (or
+	(loop for track in (reverse (cdr (assoc 'tracks stats)))
+	      when (plist-get (cdr track) :seen)
+	      return (car track))
+	(caar (cdr (assoc 'tracks stats))))))))
+
+(defun movie-goto-movie (movie)
+  (goto-char (point-min))
+  (while (and (not (eobp))
+	      (not (equal movie (get-text-property (point) 'file-name))))
+    (forward-line 1)))
 
 (defun movie-get-stats (directory)
   (let ((file (expand-file-name "stats" directory))
