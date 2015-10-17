@@ -363,6 +363,7 @@ Otherwise, goto the start of the buffer."
   (let ((map (make-sparse-keymap)))
     (suppress-keymap map)
     (define-key map "\r" 'movie-find-file)
+    (define-key map " " 'movie-play-best-file)
     (define-key map [delete] 'movie-delete-file)
     (define-key map [del] 'movie-delete-file)
     (define-key map [backspace] 'movie-delete-file)
@@ -437,6 +438,47 @@ Otherwise, goto the start of the buffer."
       (movie-browse file 'alphabetical)
     (movie-play file)
     (discard-input)))
+
+(defun movie-play-best-file (file)
+  "Play the longest file in the directory/file under point."
+  (interactive (list (movie-current-file)))
+  (when (file-directory-p file)
+    (setf file (movie-best-file file)))
+  (movie-find-file file))
+
+(defun movie-best-file (dir)
+  (cdar
+   (cl-sort
+    (mapcar
+     (lambda (file)
+       (cons (elt (file-attributes file) 7)
+	     file))
+     (movie-find-files dir "."))
+    '>
+    :key 'car)))
+
+(defun movie-find-files (dir match &optional include-directories)
+  "Return all files under DIR that have file names matching MATCH (a regexp).
+This function works recursively.  Files are returned in \"depth first\"
+and alphabetical order.
+If INCLUDE-DIRECTORIES, also include directories that have matching names."
+  (let ((result nil)
+	(files nil)
+	(directories nil))
+    (dolist (file (directory-files dir t))
+      (let ((leaf (file-name-nondirectory file)))
+	(unless (member leaf '("." ".."))
+	  (if (file-directory-p file)
+	      (progn
+		(when (and include-directories
+			   (string-match match leaf))
+		  (push file files))
+		(setq result (nconc result (movie-find-files
+					    file match
+					    include-directories))))
+	    (when (string-match match leaf)
+	      (push file files))))))
+    (nconc result (nreverse files))))
 
 (defun movie-find-torrent ()
   "Find torrent dir"
