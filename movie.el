@@ -882,6 +882,12 @@
   (with-temp-buffer
     (call-process "youtube-dl" nil (list (current-buffer) nil) nil "-g"
 		  "-f" "22" url)
+    (when (zerop (buffer-size))
+      (call-process "youtube-dl" nil (list (current-buffer) nil) nil "-g"
+		    "-f" "18" url))
+    (when (zerop (buffer-size))
+      (call-process "youtube-dl" nil (list (current-buffer) nil) nil "-g"
+		    url))
     (goto-char (point-min))
     (buffer-substring (point) (line-end-position))))
     
