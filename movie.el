@@ -904,16 +904,31 @@ Otherwise, goto the start of the buffer."
 (defun movie-direct-url (url)
   (with-temp-buffer
     (call-process "youtube-dl" nil (list (current-buffer) nil) nil "-g"
-		  "-f" "22" url)
-    (when (zerop (buffer-size))
-      (call-process "youtube-dl" nil (list (current-buffer) nil) nil "-g"
-		    "-f" "18" url))
-    (when (zerop (buffer-size))
-      (call-process "youtube-dl" nil (list (current-buffer) nil) nil "-g"
-		    url))
+		  "-f" (movie-best-youtube-format url) url)
     (goto-char (point-min))
     (buffer-substring (point) (line-end-position))))
-    
+
+(defun movie-best-youtube-format (url)
+  (with-temp-buffer
+    (call-process "youtube-dl" nil (list (current-buffer) nil) nil
+		  "-F" url)
+    (goto-char (point-min))
+    (re-search-forward "^format")
+    (forward-line 1)
+    (delete-region (point-min) (point))
+    (while (re-search-forward "audio only\\|video only" nil t)
+      (delete-region (line-beginning-position)
+		     (line-beginning-position 2)))
+    (goto-char (point-min))
+    (loop while (not (eobp))
+	  for (format code resolution note) =
+	  (split-string (buffer-substring (point) (line-end-position)))
+	  if (string-match "(best)" (or note ""))
+	  return format
+	  collect format into formats
+	  finally (return (car (last formats)))
+	  do (forward-line 1))))
+
 (defun movie-play-youtube (url &optional aspect)
   (message "Got youtube url %s" url)
   (movie-play-1
