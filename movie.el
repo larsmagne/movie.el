@@ -191,7 +191,7 @@ Otherwise, goto the start of the buffer."
 		 (and (functionp match)
 		      (eq (car atts) t)
 		      (funcall match (movie-get-stats file))))
-	     (not (string-match "\\.png\\'\\|\\.JPG\\'\\|/stats\\|/seen-date" file))
+	     (not (string-match "\\.png\\'\\|\\.JPG\\'\\|/stats\\|/seen-date\\|txt$\\|~$" file))
 	     (or (and (eq (car atts) nil)
 		      (string-match movie-files (file-name-nondirectory file)))
 		 (and (eq (car atts) t)
