@@ -240,12 +240,21 @@ Otherwise, goto the start of the buffer."
 		  data))
       data)))
 
+(defun movie-biggest-file-data (dir)
+  (let ((files nil))
+    (dolist (file (directory-files (plist-get dir :file) t))
+      (push (cons (nth 7 (file-attributes file)) file) files))
+    (car (sort files (lambda (f1 f2)
+		       (> (car f1) (car f2)))))))
+
 (defun movie-generate-buffer (files &optional order)
   (when (not order)
     (setq order 'chronological))
   (setq files (movie-sort files order))
   (dolist (file files)
-    (let ((subtitles (length (plist-get file :subtitles))))
+    (let ((subtitles (length (plist-get file :subtitles)))
+	  (dir-data (and (plist-get file :directoryp)
+			 (movie-biggest-file-data file))))
       (when (eq order 'year)
 	(insert (format "%04d " (or (plist-get file :year) 9999))))
       (when (eq order 'director)
@@ -273,7 +282,8 @@ Otherwise, goto the start of the buffer."
 			    "#000080")
 			"#800000")))))
 	(if (plist-get file :directoryp)
-	    ""
+	    (format "/ (%s)"
+		    (round (/ (or (car dir-data) -1) 1024 1024)))
 	  (format
 	   " (%s)%s%s"
 	   (if (plist-get file :length)
@@ -299,9 +309,14 @@ Otherwise, goto the start of the buffer."
 				  t))
 	(let ((png (or (plist-get file :image)
 		       (concat (plist-get file :file) ".png"))))
-	  (if (file-exists-p png)
-	      (insert-image (create-image png))
-	    (insert-image (create-image "~/tmp/empty.png"))))
+	  (cond
+	   ((file-exists-p png)
+	    (insert-image (create-image png)))
+	   ((and (plist-get file :directoryp)
+		 (file-exists-p (format "%s.png" (cdr dir-data))))
+	    (insert-image (create-image (format "%s.png" (cdr dir-data)))))
+	   (t
+	    (insert-image (create-image "~/tmp/empty.png")))))
 	(beginning-of-line)
 	(put-text-property
 	 (point) (1+ (point))
