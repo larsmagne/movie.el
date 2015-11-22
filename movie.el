@@ -254,7 +254,8 @@ Otherwise, goto the start of the buffer."
   (dolist (file files)
     (let ((subtitles (length (plist-get file :subtitles)))
 	  (dir-data (and (plist-get file :directoryp)
-			 (movie-biggest-file-data file))))
+			 (movie-biggest-file-data file)))
+	  (dvdp (string-match "^/dvd/" (plist-get file :file))))
       (when (eq order 'year)
 	(insert (format "%04d " (or (plist-get file :year) 9999))))
       (when (eq order 'director)
@@ -282,8 +283,10 @@ Otherwise, goto the start of the buffer."
 			    "#000080")
 			"#800000")))))
 	(if (plist-get file :directoryp)
-	    (format "/ (%s)"
-		    (round (/ (or (car dir-data) -1) 1024 1024)))
+	    (if dvdp
+		""
+	      (format "/ (%s)"
+		      (round (/ (or (car dir-data) -1) 1024 1024))))
 	  (format
 	   " (%s)%s%s"
 	   (if (plist-get file :length)
