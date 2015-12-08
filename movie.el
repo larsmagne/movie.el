@@ -107,14 +107,17 @@ Otherwise, goto the start of the buffer."
   (interactive)
   (let ((stats (movie-get-stats default-directory)))
     (if (not stats)
-	(goto-char (point-min))
+	(progn
+	  (goto-char (point-min))
+	  nil)
       ;; We want to go to the last "seen" track.
       (movie-goto-movie
        (or
 	(loop for track in (reverse (cdr (assoc 'tracks stats)))
 	      when (plist-get (cdr track) :seen)
 	      return (car track))
-	(caar (cdr (assoc 'tracks stats))))))))
+	(caar (cdr (assoc 'tracks stats)))))
+      t)))
 
 (defun movie-goto-movie (movie)
   (goto-char (point-min))
@@ -737,8 +740,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	     (not (eobp)))
     (forward-char 1))
   (let ((lines (count-lines (point-min) (point))))
-    (movie-browse default-directory order movie-limit)
-    (forward-line (1- lines))))
+    (unless (movie-browse default-directory order movie-limit)
+      (forward-line (1- lines)))))
 
 (defun movie-toggle-sort ()
   "Toggle sorting by time."
@@ -1136,7 +1139,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (when (and (not (plist-get movie :seen))
 	       (not (plist-get movie :mostly-seen))
 	       (plist-get movie :genre)
-	       (not (string-match "tv" (plist-get movie :genre))))
+	       (not (string-match "tv" (plist-get movie :genre)))
+	       (not (string-match "James Bond" (plist-get movie :genre))))
       (let ((file (plist-get movie :file)))
 	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
 						   "/tv/unseen"))))))
