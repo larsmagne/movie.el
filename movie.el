@@ -1038,9 +1038,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	   (files (directory-files directory t "mkv$")))
       (insert (format "Title: %s\n" title))
       (when imdb
-	(insert (format "Director: %s\nYear: %s\n"
+	(insert (format "Director: %s\nYear: %s\nCountry: %s\n"
 			(cadr imdb)
-			(car imdb))))
+			(car imdb)
+			(nth 2 imdb))))
       (insert
        (format
 	"Genre: %s\nRecorded: %s\n"
@@ -1139,7 +1140,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (when (and (not (plist-get movie :seen))
 	       (not (plist-get movie :mostly-seen))
 	       (plist-get movie :genre)
-	       (not (string-match "tv" (plist-get movie :genre)))
+	       (not (string-match "Allen" (plist-get movie :director)))
+	       (not (string-match "tv\\|comics" (plist-get movie :genre)))
 	       (not (string-match "James Bond" (plist-get movie :genre))))
       (let ((file (plist-get movie :file)))
 	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
