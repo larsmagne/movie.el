@@ -410,6 +410,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "-" 'movie-collapse)
     (define-key map "i" 'movie-mark-as-seen)
     (define-key map "a" 'movie-add-stats)
+    (define-key map "U" 'movie-update-stats-file)
     (define-key map "." 'end-of-buffer)
     (define-key map "," 'beginning-of-buffer)
     (define-key map "}" 'scroll-down-command)
@@ -449,8 +450,10 @@ Otherwise, goto the start of the buffer."
   (let ((stats (movie-get-stats dir)))
     (if (not stats)
 	""
-      (format "%s %s" (cdr (assoc "Year" stats))
-	      (cdr (assoc "Director" stats))))))
+      (format "%s %s %s"
+	      (or (cdr (assoc "Year" stats)) "")
+	      (or (cdr (assoc "Director" stats)))
+	      (or (cdr (assoc "Country" stats)))))))
 
 (defun movie-find-file (file)
   "Find or play the file under point."
@@ -1038,10 +1041,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	   (files (directory-files directory t "mkv$")))
       (insert (format "Title: %s\n" title))
       (when imdb
-	(insert (format "Director: %s\nYear: %s\nCountry: %s\n"
-			(cadr imdb)
-			(car imdb)
-			(nth 2 imdb))))
+	(insert (format "Director: %s\nYear: %s\nCountry: %s\nIMDB: %s\n"
+			(plist-get imdb :director)
+			(plist-get imdb :year)
+			(plist-get imdb :country)
+			(or (plist-get imdb :id) ""))))
       (insert
        (format
 	"Genre: %s\nRecorded: %s\n"
@@ -1072,6 +1076,46 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		     ,@(when position
 			 `(:seen (,(string-to-number position)
 				  "19700101T010000")))))))))))
+
+(defun movie-parse-stats (directory)
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "stats" directory))
+    (let ((data nil))
+      (while (looking-at "\\([^:\n]+\\): ?\\(.*\\)")
+	(setq data (plist-put data
+			      (intern (concat ":" (downcase (match-string 1))))
+			      (match-string 2)))
+	(forward-line 1))
+      data)))
+
+(defun movie-update-stats-file (directory)
+  "Update the country/id in the stats file for DIRECTORY."
+  (interactive (list (movie-current-file)))
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "stats" directory))
+    (when (re-search-forward "^IMDB:" nil t)
+      (error "IMDB id already registered"))
+    (let* ((stats (movie-parse-stats directory))
+	   (data (imdb-query-full (plist-get stats :title)))
+	   imdb)
+      (when data
+	(loop for elem in data
+	      when (or (equal (plist-get stats :director)
+			      (plist-get elem :director))
+		       (equal (plist-get stats :year)
+			      (plist-get elem :year)))
+	      do (setq imdb elem))
+	(unless imdb
+	  (setq imdb (imdb-query (plist-get stats :title))))
+	(when imdb
+	  (re-search-forward "^$")
+	  (insert (format "Country: %s\nIMDB: %s\n"
+			  (plist-get imdb :country)
+			  (plist-get imdb :id)))
+	  (write-region (point-min) (point-max)
+			(expand-file-name "stats" directory))
+	  (message "The country is %s" (plist-get imdb :country))))))
+  (forward-line 1))
 
 (defun movie-one-directory ()
   "Move files from (2)-like subdirectories to the current directory."
