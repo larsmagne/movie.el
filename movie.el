@@ -776,7 +776,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (unless (file-exists-p dir)
       (make-directory dir))
     (dolist (file (directory-files default-directory t))
-      (when (and (not (file-directory-p file))
+      (when (and (not (equal (file-name-nondirectory file) "."))
+		 (not (equal (file-name-nondirectory file) ".."))
 		 (string-equal
 		  (downcase (or (movie-prefix (file-name-nondirectory file))
 				""))
