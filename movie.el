@@ -425,7 +425,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "t" 'movie-find-torrent)
     (define-key map "s" 'movie-toggle-sort)
     (define-key map "r" 'movie-rename)
-    (define-key map "l" 'movie-list-channels)
+    (define-key map "l" 'movie-last-seen)
     (define-key map "-" 'movie-collapse)
     (define-key map "i" 'movie-mark-as-seen)
     (define-key map "a" 'movie-add-stats)
@@ -1219,15 +1219,50 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (cond
      ((string-match "^\\(.*\\)[. ]+s\\([0-9]+\\)e\\([0-9]+\\)" desc)
       (list :name (match-string 1 desc)
-	    :season (kickass-clean-number (match-string 2 desc))
-	    :episode (kickass-clean-number (match-string 3 desc))))
+	    :season (movie-clean-number (match-string 2 desc))
+	    :episode (movie-clean-number (match-string 3 desc))))
      ((string-match "^\\(.*?\\)[. ]+\\([-0-9 ]+\\)" desc)
       (list :name (match-string 1 desc)
 	    :season "0"
-	    :episode (kickass-clean-number (match-string 2 desc))))
+	    :episode (movie-clean-number (match-string 2 desc))))
      (t
       (message "Unable to parse %s" desc)
       nil))))
+
+(defun movie-clean-number (string)
+  (save-match-data
+    (replace-regexp-in-string
+     " +" "-"
+     (replace-regexp-in-string
+      "^0+\\|^ +\\| $" "" string))))
+
+(defun movie-last-seen (file)
+  "Say when the series under point was last seen."
+  (interactive (list (movie-current-file)))
+  (let ((data (movie-parse-description (file-name-nondirectory file)))
+	(case-fold-search t)
+	results)
+    (unless data
+      (error "Couldn't parse %s" (file-name-nondirectory file)))
+    (with-temp-buffer
+      (insert-file-contents movie-positions-file)
+      (goto-char (point-max))
+      (while (and (re-search-backward
+		   (replace-regexp-in-string "[^a-z0-9]" ".*"
+					     (downcase (plist-get data :name)))
+		   nil t)
+		  (< (length results) 5))
+	(let ((show (buffer-substring (progn
+				  (beginning-of-line)
+				  (search-forward " " (line-end-position) t)
+				  (point))
+				      (line-end-position))))
+	  (unless (member show results)
+	    (push show results)))
+	(beginning-of-line)))
+    (if (not results)
+	(message "Not seen %s" (plist-get data :name))
+      (message "%s" (mapconcat 'identity (nreverse results) "\n")))))
 
 (provide 'movie)
 
