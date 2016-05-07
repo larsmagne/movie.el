@@ -1252,11 +1252,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 					     (downcase (plist-get data :name)))
 		   nil t)
 		  (< (length results) 5))
-	(let ((show (buffer-substring (progn
-				  (beginning-of-line)
-				  (search-forward " " (line-end-position) t)
-				  (point))
-				      (line-end-position))))
+	(let ((show (buffer-substring
+		     (progn
+		       (beginning-of-line)
+		       (search-forward " " (line-end-position) t)
+		       (point))
+		     (line-end-position))))
 	  (unless (member show results)
 	    (push show results)))
 	(beginning-of-line)))
