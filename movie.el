@@ -71,6 +71,9 @@
 (defvar movie-picture-directory nil
   "Directory where pictures are taken during movie playing.")
 
+(defvar movie-positions-file "/tv/data/mplayer.positions"
+  "Where viewing positions are stored.")
+
 (defvar movie-file-id nil)
 
 (defun movie-browse (directory &optional order match)
@@ -174,6 +177,11 @@ Otherwise, goto the start of the buffer."
   (interactive)
   (movie-browse default-directory 'year movie-limit))
 
+(defun movie-list-by-country ()
+  "List the movies by year."
+  (interactive)
+  (movie-browse default-directory 'country movie-limit))
+
 (defun movie-list-by-director ()
   "List movies by element like directory or genre."
   (interactive)
@@ -216,6 +224,10 @@ Otherwise, goto the start of the buffer."
 		      ,(let ((director (cdr (assoc "Director"
 					       (movie-get-stats file)))))
 			 (or director ""))
+		      :country
+		      ,(let ((country (cdr (assoc "Country"
+						  (movie-get-stats file)))))
+			 (or country ""))
 		      ,@(when track
 			  (cdr track))
 		      ,@(when (nth 0 atts)
@@ -261,6 +273,9 @@ Otherwise, goto the start of the buffer."
 	  (dvdp (string-match "^/dvd/" (plist-get file :file))))
       (when (eq order 'year)
 	(insert (format "%04d " (or (plist-get file :year) 9999))))
+      (when (eq order 'country)
+	(insert (format "%04d %02s " (or (plist-get file :year) 9999)
+			(or (plist-get file :country) ""))))
       (when (eq order 'director)
 	(insert (format "%4s %-20s "
 			(plist-get file :year)
@@ -371,6 +386,10 @@ Otherwise, goto the start of the buffer."
 	   (lambda (f1 f2)
 	     (string< (or (plist-get f1 :director) 0)
 		      (or (plist-get f2 :director) 0))))
+	  ((eq order 'country)
+	   (lambda (f1 f2)
+	     (string< (or (plist-get f1 :country) "")
+		      (or (plist-get f2 :country) ""))))
 	  (t
 	   (error "No such order %s" order)))))
     (when (eq order 'director)
@@ -593,12 +612,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (format "%s" (max 0 (- pos 2)))))))
 
 (defun movie-find-position-from-mplayer (file &optional no-skip)
-  (when (and (file-exists-p "/tv/data/mplayer.positions")
+  (when (and (file-exists-p movie-positions-file)
 	     (string-match "/tv/\\|/dvd/\\|http:\\|^/run" file)
 	     (not (equal file "/tv/live")))
     (with-temp-buffer
       (let ((coding-system-for-read 'iso-8859-1))
-	(insert-file-contents "/tv/data/mplayer.positions")
+	(insert-file-contents movie-positions-file)
 	(goto-char (point-max))
 	(when (search-backward
 	       (concat " " (file-name-nondirectory file) "\n") nil t)
@@ -673,10 +692,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (coding-system-for-read 'iso-8859-1)
 	  (coding-system-for-write 'iso-8859-1))
       (with-temp-buffer
-	(insert-file-contents "/tv/data/mplayer.positions")
+	(insert-file-contents movie-positions-file)
 	(goto-char (point-max))
 	(insert (format "%s %s\n" position (file-name-nondirectory file)))
-	(write-region (point-min) (point-max) "/tv/data/mplayer.positions"
+	(write-region (point-min) (point-max) movie-positions-file
 		      nil 'nomessage)))))
 
 (defun movie-find-highest-image ()
@@ -824,7 +843,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-find-previous-vob (data)
   (with-temp-buffer
-    (insert-file-contents "/tv/data/mplayer.positions")
+    (insert-file-contents movie-positions-file)
     (goto-char (point-max))
     (when (re-search-backward (format " %s#[0-9]+#\\([0-9]+\\)\n"
 				      (regexp-quote (car data)))
@@ -842,16 +861,16 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (movie-play (format "dvd://%d" (elt (cadr data) (1- number))))
     ;; And after playing the movie, update the data from the
     ;; .positions file to be this file ID.
-    (when (file-exists-p "/tv/data/mplayer.positions")
+    (when (file-exists-p movie-positions-file)
       (with-temp-buffer
-	(insert-file-contents "/tv/data/mplayer.positions")
+	(insert-file-contents movie-positions-file)
 	(goto-char (point-max))
 	(forward-line -1)
 	(when (looking-at "[0-9.]+ \\([0-9]+\\)\n")
 	  (goto-char (match-beginning 1))
 	  (delete-region (point) (line-end-position))
 	  (insert (file-name-nondirectory movie-file-id))
-	  (write-region (point-min) (point-max) "/tv/data/mplayer.positions"
+	  (write-region (point-min) (point-max) movie-positions-file
 			nil 'silent))))))
 
 (defun movie-dvd-data ()
@@ -1191,6 +1210,24 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (let ((file (plist-get movie :file)))
 	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
 						   "/tv/unseen"))))))
+
+;; "Bitchin Rides S01E06 The Juice Is Worth the Squeeze HDTV XviD-AF"
+;; "Naild.It.S01E01.Nail.Pride.HDTV.x264-DaViEW"
+;; "The Daily Show 2014 10 07 Wyatt Cenac HDTV x264-W4F [GloDLS]"
+(defun movie-parse-description (desc)
+  (let ((case-fold-search t))
+    (cond
+     ((string-match "^\\(.*\\)[. ]+s\\([0-9]+\\)e\\([0-9]+\\)" desc)
+      (list :name (match-string 1 desc)
+	    :season (kickass-clean-number (match-string 2 desc))
+	    :episode (kickass-clean-number (match-string 3 desc))))
+     ((string-match "^\\(.*?\\)[. ]+\\([-0-9 ]+\\)" desc)
+      (list :name (match-string 1 desc)
+	    :season "0"
+	    :episode (kickass-clean-number (match-string 2 desc))))
+     (t
+      (message "Unable to parse %s" desc)
+      nil))))
 
 (provide 'movie)
 
