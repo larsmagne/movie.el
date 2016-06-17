@@ -64,6 +64,12 @@
 (defvar movie-crop '("-vf" "crop=700:420")
   "Parameters to crop a 4:3 aspect ratio program.")
 
+(defvar movie-deinterlace-switch "yadif=3"
+  "-vf switch t opass to mplayer to deinterlace films.
+Valid values include yadif=3 (CPU intensive), pp=lb (results in
+double images when things are moving fast) and pp=ci (use half
+the lines in the image and lots of stairing).")
+
 (defvar movie-high-volume
   '("-af" "volume=15:1")
   "Parameters to boost the volume.")
@@ -548,7 +554,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (setq options
 		     (movie-add-vf options "crop=700:300")))
 	      ((eq char ?i)
-	       (setq options (movie-add-vf options "pp=li")))
+	       (setq options (movie-add-vf options movie-deinterlace-switch)))
 	      ((eq char ?x)
 	       (setq options (append options (list "-vo" "xv"))))
 	      ((eq char ?a)
@@ -581,7 +587,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
   (if (movie-interlaced-p file)
-      (movie-play-1 (append (movie-add-vf movie-player "pp=li") (list file)))
+      (movie-play-1 (append (movie-add-vf movie-player movie-deinterlace-switch)
+			    (list file)))
     (movie-play-1 (append movie-player (list file)))))
 
 (defun movie-play-simple (file)
