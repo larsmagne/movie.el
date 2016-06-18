@@ -55,6 +55,8 @@
     "-mouse-movements"
     "-cache-min" "99"
     "-cache" "10000"
+    "-utf8"
+    "-subfont-text-scale" "3"
      )
   "Command to play a file.")
 
