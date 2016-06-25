@@ -579,7 +579,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (if (not old)
 	(append options (list "-vf" vf))
       (setcar (cdr old)
-	      (concat (cadr old) "," vf))
+	      (concat vf "," (cadr old)))
       options)))
 
 (defun movie-play-high-volume (file)
@@ -625,7 +625,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	     (string-match "/tv/\\|/dvd/\\|http:\\|^/run" file)
 	     (not (equal file "/tv/live")))
     (with-temp-buffer
-      (let ((coding-system-for-read 'iso-8859-1))
+      (let ((coding-system-for-read 'utf-8))
 	(insert-file-contents movie-positions-file)
 	(goto-char (point-max))
 	(when (search-backward
@@ -698,8 +698,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (goto-char (point-max))
   (when (re-search-backward "^@p \\([0-9.]+\\)" nil t)
     (let ((position (match-string 1))
-	  (coding-system-for-read 'iso-8859-1)
-	  (coding-system-for-write 'iso-8859-1))
+	  (coding-system-for-read 'utf-8)
+	  (coding-system-for-write 'utf-8))
       (with-temp-buffer
 	(insert-file-contents movie-positions-file)
 	(goto-char (point-max))
