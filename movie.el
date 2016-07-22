@@ -203,6 +203,7 @@ Otherwise, goto the start of the buffer."
     (dolist (file files)
       (setq atts (file-attributes file))
       (when (and
+	     (not (string-match "^[.]" (file-name-nondirectory file)))
 	     (or (null match)
 		 (and (stringp match)
 		      (let ((case-fold-search t))
@@ -559,6 +560,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (setq options (movie-add-vf options movie-deinterlace-switch)))
 	      ((eq char ?x)
 	       (setq options (append options (list "-vo" "xv"))))
+	      ((eq char ?4)
+	       (setq options (append options (list "--aspectratio=4:3"))))
 	      ((eq char ?a)
 	       (setq options
 		     (movie-add-vf options "-monitoraspect=4:3")))
@@ -743,7 +746,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(when (file-exists-p png)
 	  (delete-file png))))
     (beginning-of-line)
-    (movie-rescan-1)))
+    (delete-region (point) (line-beginning-position 2))
+    (unless (bobp)
+      (forward-line -1))))
 
 (defun movie-add-stats (dir &optional no-director)
   "Add a stats file to the directory under point."
