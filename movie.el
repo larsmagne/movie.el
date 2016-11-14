@@ -204,6 +204,7 @@ Otherwise, goto the start of the buffer."
       (setq atts (file-attributes file))
       (when (and
 	     (not (string-match "^[.]" (file-name-nondirectory file)))
+	     (not (equal (file-name-nondirectory file) "p"))
 	     (or (null match)
 		 (and (stringp match)
 		      (let ((case-fold-search t))
@@ -750,7 +751,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (delete-region (point) (line-beginning-position 2))
     (when (and (not (bobp))
 	       (eq movie-order 'chronological))
-      (forward-line -1))))
+      (forward-line -1))
+    (unless (eobp)
+      (forward-char 1))))
 
 (defun movie-add-stats (dir &optional no-director)
   "Add a stats file to the directory under point."
