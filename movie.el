@@ -625,7 +625,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-find-position-from-mplayer (file &optional no-skip)
   (when (and (file-exists-p movie-positions-file)
-	     (string-match "/tv/\\|/dvd/\\|http:\\|^/run" file)
+	     (or (not (equal (system-name) "quimbies"))
+		 (string-match "/tv/\\|/dvd/\\|http:\\|^/run" file))
 	     (not (equal file "/tv/live")))
     (with-temp-buffer
       (let ((coding-system-for-read 'utf-8))
