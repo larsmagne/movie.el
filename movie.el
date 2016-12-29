@@ -1222,16 +1222,43 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (dolist (movie (movie-get-files "/dvd"))
     (when (and (not (plist-get movie :seen))
 	       (not (plist-get movie :mostly-seen))
-	       (or (equal (plist-get movie :country) "")
-		   (equal (plist-get movie :country) "us")
-		   (equal (plist-get movie :country) "gb"))
+	       ;;(member (plist-get movie :country) '("" "fr" "us" "gb" "ca"))
 	       (plist-get movie :genre)
-	       (not (string-match "Allen" (plist-get movie :director)))
-	       (not (string-match "tv\\|comics" (plist-get movie :genre)))
-	       (not (string-match "James Bond" (plist-get movie :genre))))
+	       (not (string-match "Star Trek" (plist-get movie :file)))
+	       ;;(not (string-match "Allen" (plist-get movie :director)))
+	       (not (string-match "tv" (plist-get movie :genre)))
+	       (not (string-match "comics" (plist-get movie :genre)))
+	       (not (string-match "James Bond" (plist-get movie :genre)))
+	       )
       (let ((file (plist-get movie :file)))
 	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
 						   "/tv/unseen"))))))
+
+(defun movie-move-small-unseen ()
+  "Create a directory of the smallest films from the unseen directory."
+  (interactive)
+  (dolist (file (directory-files "/tv/smallunseen" t))
+    (when (file-symlink-p file)
+      (delete-file file)))
+  (let ((films
+	 (sort
+	  (loop for film in (directory-files "/tv/unseen" t)
+		unless (string-match "^[.]" (file-name-nondirectory film))
+		collect (cons
+			 (loop for file in (directory-files film t)
+			       sum (file-attribute-size (file-attributes file)))
+			 film))
+	  (lambda (f1 f2)
+	    (< (car f1) (car f2)))))
+	;; 200GB
+	(total (* 1000 1000 1000 200)))
+    (loop for (size . film) in films
+	  while (plusp total)
+	  do
+	  (decf total size)
+	  (rename-file film
+		       (expand-file-name (file-name-nondirectory film)
+					 "/tv/smallunseen")))))
 
 ;; "Bitchin Rides S01E06 The Juice Is Worth the Squeeze HDTV XviD-AF"
 ;; "Naild.It.S01E01.Nail.Pride.HDTV.x264-DaViEW"
