@@ -1060,10 +1060,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
        (string-to-number (match-string 1 string))))
 
 (defun movie-interlaced-p (file)
-  (with-temp-buffer
-    (call-process "mediainfo" nil t nil file)
-    (goto-char (point-min))
-    (re-search-forward "^Scan type.*Interlace" nil t)))
+  (and (not (equal (system-name) "novelty.gnus.org"))
+       (with-temp-buffer
+	 (call-process "mediainfo" nil t nil file)
+	 (goto-char (point-min))
+	 (re-search-forward "^Scan type.*Interlace" nil t))))
 
 (defun movie-make-stats-file (directory &optional no-directory)
   "Create a stats file for DIRECTORY."
