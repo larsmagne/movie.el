@@ -204,6 +204,7 @@ Otherwise, goto the start of the buffer."
       (setq atts (file-attributes file))
       (when (and
 	     (not (string-match "^[.]" (file-name-nondirectory file)))
+	     (not (equal (file-name-nondirectory file) "p"))
 	     (or (null match)
 		 (and (stringp match)
 		      (let ((case-fold-search t))
@@ -748,8 +749,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (delete-file png))))
     (beginning-of-line)
     (delete-region (point) (line-beginning-position 2))
-    (unless (bobp)
-      (forward-line -1))))
+    (when (and (not (bobp))
+	       (eq movie-order 'chronological))
+      (forward-line -1))
+    (unless (eobp)
+      (forward-char 1))))
 
 (defun movie-add-stats (dir &optional no-director)
   "Add a stats file to the directory under point."
@@ -1219,13 +1223,47 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (dolist (movie (movie-get-files "/dvd"))
     (when (and (not (plist-get movie :seen))
 	       (not (plist-get movie :mostly-seen))
+	       ;;(member (plist-get movie :country) '("" "fr" "us" "gb" "ca"))
 	       (plist-get movie :genre)
+	       (not (string-match "Star Trek" (plist-get movie :file)))
 	       (not (string-match "Allen" (plist-get movie :director)))
-	       (not (string-match "tv\\|comics" (plist-get movie :genre)))
-	       (not (string-match "James Bond" (plist-get movie :genre))))
+	       (or (not (string-match "tv" (plist-get movie :genre)))
+		   (< (movie-film-size (plist-get movie :file))
+		      ;; 70GB.
+		      (* 1000 1000 1000 70)))
+	       (not (string-match "comics" (plist-get movie :genre)))
+	       (not (string-match "James Bond" (plist-get movie :genre)))
+	       )
       (let ((file (plist-get movie :file)))
 	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
 						   "/tv/unseen"))))))
+
+(defun movie-move-small-unseen ()
+  "Create a directory of the smallest films from the unseen directory."
+  (interactive)
+  (dolist (file (directory-files "/tv/smallunseen" t))
+    (when (file-symlink-p file)
+      (delete-file file)))
+  (let ((films
+	 (sort
+	  (loop for film in (directory-files "/tv/unseen" t)
+		unless (string-match "^[.]" (file-name-nondirectory film))
+		collect (cons (movie-film-size film) film))
+	  (lambda (f1 f2)
+	    (< (car f1) (car f2)))))
+	;; 200GB
+	(total (* 1000 1000 1000 205)))
+    (loop for (size . film) in films
+	  while (plusp total)
+	  do
+	  (decf total size)
+	  (rename-file film
+		       (expand-file-name (file-name-nondirectory film)
+					 "/tv/smallunseen")))))
+
+(defun movie-film-size (film)
+  (loop for file in (directory-files-recursively film ".")
+	sum (* 1.0 (file-attribute-size (file-attributes file)))))
 
 ;; "Bitchin Rides S01E06 The Juice Is Worth the Squeeze HDTV XviD-AF"
 ;; "Naild.It.S01E01.Nail.Pride.HDTV.x264-DaViEW"
