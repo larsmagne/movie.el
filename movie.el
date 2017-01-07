@@ -1225,8 +1225,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       ;;(member (plist-get movie :country) '("" "fr" "us" "gb" "ca"))
 	       (plist-get movie :genre)
 	       (not (string-match "Star Trek" (plist-get movie :file)))
-	       ;;(not (string-match "Allen" (plist-get movie :director)))
-	       (not (string-match "tv" (plist-get movie :genre)))
+	       (not (string-match "Allen" (plist-get movie :director)))
+	       (or (not (string-match "tv" (plist-get movie :genre)))
+		   (< (movie-film-size (plist-get movie :file))
+		      ;; 70GB.
+		      (* 1000 1000 1000 70)))
 	       (not (string-match "comics" (plist-get movie :genre)))
 	       (not (string-match "James Bond" (plist-get movie :genre)))
 	       )
@@ -1244,14 +1247,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	 (sort
 	  (loop for film in (directory-files "/tv/unseen" t)
 		unless (string-match "^[.]" (file-name-nondirectory film))
-		collect (cons
-			 (loop for file in (directory-files film t)
-			       sum (file-attribute-size (file-attributes file)))
-			 film))
+		collect (cons (movie-film-size film) film))
 	  (lambda (f1 f2)
 	    (< (car f1) (car f2)))))
 	;; 200GB
-	(total (* 1000 1000 1000 200)))
+	(total (* 1000 1000 1000 205)))
     (loop for (size . film) in films
 	  while (plusp total)
 	  do
@@ -1259,6 +1259,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (rename-file film
 		       (expand-file-name (file-name-nondirectory film)
 					 "/tv/smallunseen")))))
+
+(defun movie-film-size (film)
+  (loop for file in (directory-files-recursively film ".")
+	sum (* 1.0 (file-attribute-size (file-attributes file)))))
 
 ;; "Bitchin Rides S01E06 The Juice Is Worth the Squeeze HDTV XviD-AF"
 ;; "Naild.It.S01E01.Nail.Pride.HDTV.x264-DaViEW"
