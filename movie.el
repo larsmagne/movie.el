@@ -230,9 +230,11 @@ Otherwise, goto the start of the buffer."
 				   (string-to-number year)
 				 9999))
 		      :genre ,(cdr (assoc "Genre" (movie-get-stats file)))
+		      :title ,(cdr (assoc "Title" (movie-get-stats file)))
+		      :imdb ,(cdr (assoc "IMDB" (movie-get-stats file)))
 		      :director
 		      ,(let ((director (cdr (assoc "Director"
-					       (movie-get-stats file)))))
+						   (movie-get-stats file)))))
 			 (or director ""))
 		      :country
 		      ,(let ((country (cdr (assoc "Country"
@@ -1318,6 +1320,37 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (if (not results)
 	(message "Not seen %s" (plist-get data :name))
       (message "%s" (mapconcat 'identity (nreverse results) "\n")))))
+
+(defun movie-title (movie)
+  (replace-regexp-in-string "\\`\\(The\\|A\\) " ""
+			    (or (plist-get movie :title) "")))
+
+(defun movie-create-unseen-html ()
+  "Create a simple HTML page for unseen films."
+  (interactive)
+  (with-temp-file "/tmp/unseen.html"
+    (insert "<html>")
+    (insert "<meta charset=utf-8><body>")
+    (dolist (movie (sort (movie-get-files "/dvd")
+			 (lambda (m1 m2)
+			   (string< (movie-title m1) (movie-title m2)))))
+      (when (and (not (plist-get movie :seen))
+		 (not (plist-get movie :mostly-seen))
+		 (plist-get movie :genre)
+		 (not (string-match "Star Trek" (plist-get movie :file)))
+		 (not (string-match "Allen" (plist-get movie :director)))
+		 (not (string-match "tv" (plist-get movie :genre)))
+		 (not (string-match "comics" (plist-get movie :genre)))
+		 (not (string-match "James Bond" (plist-get movie :genre))))
+	(if (plist-get movie :imdb)
+	    (insert
+	     (format "<a href=\"http://www.imdb.com/title/%s/?ref_=nv_sr_1\">%s</a>"
+		     (plist-get movie :imdb)
+		     (plist-get movie :title)))
+	  (insert (plist-get movie :title)))
+	(insert "<br>\n")))
+    (message "%s unseen" (count-lines (point-min) (point-max))))
+  (call-process "scp" nil nil nil "/tmp/unseen.html" "www@quimby:html/s/"))
 
 (provide 'movie)
 
