@@ -148,7 +148,7 @@ Otherwise, goto the start of the buffer."
 	(forward-line 1)
 	(let ((tracks nil))
 	  (while (looking-at "(")
-	    (push (read (current-buffer)) tracks)
+	    (push (delq 'list (read (current-buffer))) tracks)
 	    (forward-line 1))
 	  (push (cons 'tracks (nreverse tracks)) data))))
     (nreverse data)))	  
@@ -701,7 +701,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-update-mplayer-position (file)
   (goto-char (point-max))
-  (when (re-search-backward "^@p \\([0-9.]+\\)" nil t)
+  (when (and (file-exists-p movie-positions-file)
+	     (re-search-backward "^@p \\([0-9.]+\\)" nil t))
     (let ((position (match-string 1))
 	  (coding-system-for-read 'utf-8)
 	  (coding-system-for-write 'utf-8))
