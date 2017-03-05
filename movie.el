@@ -1234,7 +1234,6 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		      ;; 70GB.
 		      (* 1000 1000 1000 70)))
 	       (not (string-match "comics" (plist-get movie :genre)))
-	       (not (string-match "James Bond" (plist-get movie :genre)))
 	       )
       (let ((file (plist-get movie :file)))
 	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
@@ -1340,8 +1339,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		 (not (string-match "Star Trek" (plist-get movie :file)))
 		 (not (string-match "Allen" (plist-get movie :director)))
 		 (not (string-match "tv" (plist-get movie :genre)))
-		 (not (string-match "comics" (plist-get movie :genre)))
-		 (not (string-match "James Bond" (plist-get movie :genre))))
+		 (not (string-match "comics" (plist-get movie :genre))))
 	(if (plist-get movie :imdb)
 	    (insert
 	     (format "<a href=\"http://www.imdb.com/title/%s/?ref_=nv_sr_1\">%s</a>"
