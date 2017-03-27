@@ -483,8 +483,8 @@ Otherwise, goto the start of the buffer."
 	""
       (format "%s %s %s"
 	      (or (cdr (assoc "Year" stats)) "")
-	      (or (cdr (assoc "Director" stats)))
-	      (or (cdr (assoc "Country" stats)))))))
+	      (or (cdr (assoc "Director" stats)) "")
+	      (or (cdr (assoc "Country" stats)) "")))))
 
 (defun movie-find-file (file)
   "Find or play the file under point."
