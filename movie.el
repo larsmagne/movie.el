@@ -441,6 +441,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "-" 'movie-collapse)
     (define-key map "i" 'movie-mark-as-seen)
     (define-key map "a" 'movie-add-stats)
+    (define-key map "u" 'movie-upload-file)
     (define-key map "U" 'movie-update-stats-file)
     (define-key map "." 'end-of-buffer)
     (define-key map "," 'beginning-of-buffer)
@@ -1349,6 +1350,18 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(insert "<br>\n")))
     (message "%s unseen" (count-lines (point-min) (point-max))))
   (call-process "scp" nil nil nil "/tmp/unseen.html" "www@quimby:html/s/"))
+
+(defvar movie-upload-file-command '("ncftpput" "host" "/sdcard"))
+
+(defun movie-upload-file (file)
+  "Upload the file under point to the Galaxy View."
+  (interactive (list (movie-current-file)))
+  (when (file-directory-p file)
+    (setf file (movie-best-file file)))
+  (apply #'call-process (car movie-upload-file-command)
+	 nil nil nil
+	 (append (cdr movie-upload-file-command)
+		 (list file))))
 
 (provide 'movie)
 
