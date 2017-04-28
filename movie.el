@@ -1358,10 +1358,21 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (interactive (list (movie-current-file)))
   (when (file-directory-p file)
     (setf file (movie-best-file file)))
-  (apply #'call-process (car movie-upload-file-command)
-	 nil nil nil
+  (message "Uploading %s..." file)
+  (apply 'start-process
+	 "uploading" (get-buffer-create "*upload*")
+	 (car movie-upload-file-command)
 	 (append (cdr movie-upload-file-command)
 		 (list file))))
+
+(defun movie-delete-superfluous-thumbnails ()
+  (interactive)
+  (let ((tail "[.]png\\'"))
+    (dolist (png (directory-files-recursively "/tv/torrent" tail))
+      (let ((base (replace-regexp-in-string tail "" png)))
+	(unless (file-exists-p base)
+	  (message "%s" png)
+	  (delete-file png))))))
 
 (provide 'movie)
 
