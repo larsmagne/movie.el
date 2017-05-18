@@ -84,6 +84,8 @@ the lines in the image and lots of stairing).")
 
 (defvar movie-file-id nil)
 
+(defvar movie-deletion-process nil)
+
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
   (interactive "DDirectory: ")
@@ -110,6 +112,8 @@ the lines in the image and lots of stairing).")
       (setq directory (concat directory "/")))
     (setq default-directory directory)
     (setq-local mode-line-misc-info (movie-buffer-identification directory))
+    (unless movie-deletion-process
+      (setq movie-deletion-process (run-at-time 1 10 'movie-delete-scheduled)))
     (movie-goto-logical-line)))
 
 (defun movie-goto-logical-line ()
@@ -441,7 +445,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "-" 'movie-collapse)
     (define-key map "i" 'movie-mark-as-seen)
     (define-key map "a" 'movie-add-stats)
-    (define-key map "u" 'movie-upload-file)
+    (define-key map "u" 'movie-undo-delete)
     (define-key map "U" 'movie-update-stats-file)
     (define-key map "." 'end-of-buffer)
     (define-key map "," 'beginning-of-buffer)
@@ -676,15 +680,16 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (let* ((path (file-truename (car (last player))))
 	   (file (file-name-nondirectory
 		  (directory-file-name (file-name-directory path))))
-	   (dir (format "~/.emacs.d/screenshots/%s/"
-			(if (zerop (length file))
-			    "unknown"
-			  file)))
+	   (dir (format ;;"~/.emacs.d/screenshots/%s/"
+		 "/var/tmp/screenshots/%s/"
+		 (if (zerop (length file))
+		     "unknown"
+		   file)))
 	   (highest (movie-find-highest-image)))
       ;; For /dvd playing, we store the screenshots in the DVD
       ;; directory.
-      (when (string-match "^/dvd/" path)
-	(setq dir (file-name-directory path)))
+      ;;(when (string-match "^/dvd/" path)
+      ;; (setq dir (file-name-directory path)))
       (when (file-symlink-p "~/.movie-current")
 	(delete-file "~/.movie-current"))
       (make-symbolic-link dir "~/.movie-current")
@@ -699,7 +704,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (current-buffer)
 	       nil (cdr player))
 	(movie-update-mplayer-position (car (last player)))
-	(movie-copy-images-higher-than highest dir))))
+	(movie-copy-images-higher-than highest dir))
+      (let ((stats (expand-file-name "stats" (file-name-directory path))))
+	(when (file-exists-p stats)
+	  (copy-file stats (expand-file-name "stats" dir) t)))))
   (movie-update-stats-position (car (last player))))
 
 (defun movie-update-mplayer-position (file)
@@ -732,31 +740,62 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (let ((new-file (expand-file-name (file-name-nondirectory file) dir)))
 	(call-process "convert" nil nil nil "-resize" "1000x" file new-file)))))
 
+(defvar movie-scheduled-deletions nil)
+
 (defun movie-delete-file (file)
   "Delete the file under point."
   (interactive (list (movie-current-file)))
-  (when (y-or-n-p (format "Really delete %s? " file))
-    (if (file-directory-p file)
-	(progn
-	  (let ((files (directory-files file t)))
-	    (cond
-	     ((= (length files) 2)
-	      (delete-directory file))
-	     ((string-match "/torrent" file)
-	      (delete-directory file t))
-	     (t
-	      (error "Directory not empty")))))
-      (delete-file file)
-      (let ((png (concat file ".png")))
-	(when (file-exists-p png)
-	  (delete-file png))))
+  (when (and (file-directory-p file)
+	     (not (string-match "/torrent" file))
+	     (= (length (directory-files-recursively file ".deleted-") 2)))
+    (error "Directory not empty"))
+  (beginning-of-line)
+  (let ((new-name (expand-file-name
+		   (concat "." (file-name-nondirectory file))
+		   (file-name-directory file))))
+    (push (list :name file
+		:deletion-name new-name
+		:time (float-time)
+		:display (buffer-substring (point) (line-beginning-position 2)))
+	  movie-scheduled-deletions)
+    (rename-file file new-name))
+  (delete-region (point) (line-beginning-position 2))
+  (when (and (not (bobp))
+	     (eq movie-order 'chronological))
+    (forward-line -1))
+  (unless (eobp)
+    (forward-char 1)))
+
+(defun movie-undo-delete ()
+  "Undo a scheduled deletion."
+  (interactive)
+  (let ((elem (pop movie-scheduled-deletions)))
+    (unless elem
+      (error "No further deletions scheduled"))
+    (unless (file-exists-p (plist-get elem :deletion-name))
+      (error "File %s has been completely deleted"))
     (beginning-of-line)
-    (delete-region (point) (line-beginning-position 2))
-    (when (and (not (bobp))
-	       (eq movie-order 'chronological))
-      (forward-line -1))
-    (unless (eobp)
-      (forward-char 1))))
+    (insert (plist-get elem :display))
+    (forward-line -1)
+    (rename-file (plist-get elem :deletion-name)
+		 (plist-get elem :name))))
+
+(defun movie-delete-scheduled ()
+  (dolist (elem movie-scheduled-deletions)
+    (when (> (- (float-time) 60)
+	     (plist-get elem :time))
+      ;; More than a minute has passed, so delete.
+      (let ((file (plist-get elem :deletion-name)))
+	(when (file-exists-p file)
+	  (message "Deleting %s" file)
+	  (if (file-directory-p file)
+	      (delete-directory file t)
+	    (delete-file file)
+	    (let ((png (concat (plist-get elem :name) ".png")))
+	      (when (file-exists-p png)
+		(delete-file png))))))
+      (setq movie-scheduled-deletions
+	    (delete elem movie-scheduled-deletions)))))
 
 (defun movie-add-stats (dir &optional no-director)
   "Add a stats file to the directory under point."
@@ -1373,6 +1412,38 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(unless (file-exists-p base)
 	  (message "%s" png)
 	  (delete-file png))))))
+
+(defun movie-concatenate-prime ()
+  (interactive)
+  (let ((ids (make-hash-table :test #'equal)))
+    (dolist (file (directory-files "/media/sdd1" nil "Encode"))
+      (when (string-match "Encode_1080P_\\([0-9]+\\)" file)
+	(setf (gethash (match-string 1 file) ids) t)))
+    (dolist (id (hash-table-keys ids))
+      (movie-concatenate-id id))))
+
+(defun movie-concatenate-id-1 (id)
+  (loop for file in (cons (expand-file-name (format "Encode_1080P_%s.mp4" id)
+					    "/media/sdd1")
+			  (sort (directory-files
+				 "/media/sdd1"
+				 t
+				 (format "Encode_1080P_%s_.*.mp4" id))
+				'string-version-lessp))
+	for size = (file-attribute-size (file-attributes file))
+	while (not (= (/ size 1024 1024) 120))
+	collect file))
+
+(defun movie-concatenate-id (id)
+  (let ((files (movie-concatenate-id-1 id))
+	(default-directory "/media/sdd1/")
+	(output (format "/dvd/prime/%s.mp4" id)))
+    (when (file-exists-p output)
+      (delete-file output))
+    (message "concatting %s" files)
+    (apply 'call-process "vconcat-video" nil (get-buffer-create "*concat*") nil
+	   output
+	   files)))
 
 (provide 'movie)
 
