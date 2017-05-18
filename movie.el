@@ -747,11 +747,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (interactive (list (movie-current-file)))
   (when (and (file-directory-p file)
 	     (not (string-match "/torrent" file))
-	     (= (length (directory-files-recursively file ".deleted-") 2)))
+	     (not (= (length (directory-files-recursively file ".") 2))))
     (error "Directory not empty"))
   (beginning-of-line)
   (let ((new-name (expand-file-name
-		   (concat "." (file-name-nondirectory file))
+		   (concat ".deleted-" (file-name-nondirectory file))
 		   (file-name-directory file))))
     (push (list :name file
 		:deletion-name new-name
