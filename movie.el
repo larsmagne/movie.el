@@ -787,13 +787,14 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       ;; More than a minute has passed, so delete.
       (let ((file (plist-get elem :deletion-name)))
 	(when (file-exists-p file)
-	  (message "Deleting %s" file)
+	  (message "Deleting %s..." file)
 	  (if (file-directory-p file)
 	      (delete-directory file t)
 	    (delete-file file)
 	    (let ((png (concat (plist-get elem :name) ".png")))
 	      (when (file-exists-p png)
-		(delete-file png))))))
+		(delete-file png))))
+	  (message "Deleting %s...done" file)))
       (setq movie-scheduled-deletions
 	    (delete elem movie-scheduled-deletions)))))
 
