@@ -29,6 +29,7 @@
 (require 'time-date)
 (require 'imdb)
 (require 'mkv)
+(require 'subr-x)
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
@@ -41,6 +42,7 @@
   '("mplayer"
     "-vf" "screenshot"
     ;;"-framedrop" "-hardframedrop"
+    "-autosync" "30"
     "-volume" "100"
     "-vo" "xv"
     "-fs"
@@ -447,6 +449,8 @@ Otherwise, goto the start of the buffer."
     (define-key map "a" 'movie-add-stats)
     (define-key map "u" 'movie-undo-delete)
     (define-key map "U" 'movie-update-stats-file)
+    (define-key map "p" 'movie-popup-menu)
+    (define-key map "P" 'movie-rotate-screen)
     (define-key map "." 'end-of-buffer)
     (define-key map "," 'beginning-of-buffer)
     (define-key map "}" 'scroll-down-command)
@@ -502,6 +506,7 @@ Otherwise, goto the start of the buffer."
 (defun movie-play-best-file (file)
   "Play the longest file in the directory/file under point."
   (interactive (list (movie-current-file)))
+  (call-process "pkill" nil nil nil "touchegg")
   (when (file-directory-p file)
     (setf file (movie-best-file file)))
   (movie-find-file file))
@@ -1432,7 +1437,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 				 (format "Encode_1080P_%s_.*.mp4" id))
 				'string-version-lessp))
 	for size = (file-attribute-size (file-attributes file))
-	while (not (= (/ size 1024 1024) 120))
+	while (or t ;; With the extension cord the recorder switches
+		  ;; itself off so we don't get all these small files.
+		  (not (= (/ size 1024 1024) 120)))
 	collect file))
 
 (defun movie-concatenate-id (id)
@@ -1445,6 +1452,34 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (apply 'call-process "vconcat-video" nil (get-buffer-create "*concat*") nil
 	   output
 	   files)))
+
+(defun movie-popup-menu ()
+  "Allow some touch actions."
+  (interactive)
+  (let* ((last-nonmenu-event '(t))
+	 (action
+	  (read-multiple-choice
+	   "Choose action"
+	   '((?d "Delete" movie-delete-file)
+	     (?u "Undelete" movie-undo-delete)
+	     (?p "Play" movie-play-best-file)
+	     (?r "Rotate" movie-rotate-screen)
+	     (?c "Cancel")))))
+    (message "")
+    (when (and action
+	       (caddr action))
+      (call-interactively (caddr action)))))   
+
+(defvar movie-rotation nil)
+
+(defun movie-rotate-screen ()
+  "Change screen rotation."
+  (interactive)
+  (call-process "xrandr" nil nil nil "--output" "eDP-1-1" "--rotate"
+		(if movie-rotation
+		    "normal"
+		  "inverted"))
+  (setq movie-rotation (not movie-rotation)))
 
 (provide 'movie)
 
