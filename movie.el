@@ -41,14 +41,15 @@
 (defvar movie-player
   '("mplayer"
     "-vf" "screenshot"
-    ;;"-framedrop" "-hardframedrop"
-    "-autosync" "30"
+    "-framedrop" "-hardframedrop"
+    "-nocorrect-pts"
+    ;;"-autosync" "30"
     "-volume" "100"
     "-vo" "xv"
     "-fs"
     "-quiet"
     "-softvol"
-    "-ao" "alsa:device=hw=2.0"
+    "-ao" "alsa:device=hw=1.0"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
     ;;"-ss" "1"
@@ -58,7 +59,7 @@
     "-cache-min" "99"
     "-cache" "10000"
     "-utf8"
-    "-subfont-text-scale" "3"
+    "-subfont-text-scale" "1"
      )
   "Command to play a file.")
 
@@ -350,12 +351,12 @@ Otherwise, goto the start of the buffer."
 		       (concat (plist-get file :file) ".png"))))
 	  (cond
 	   ((file-exists-p png)
-	    (insert-image (create-image png)))
+	    (insert-image (create-image png 'imagemagick)))
 	   ((and (plist-get file :directoryp)
 		 (file-exists-p (format "%s.png" (cdr dir-data))))
-	    (insert-image (create-image (format "%s.png" (cdr dir-data)))))
+	    (insert-image (create-image (format "%s.png" (cdr dir-data)) 'imagemagick)))
 	   (t
-	    (insert-image (create-image "~/tmp/empty.png")))))
+	    (insert-image (create-image "~/src/movie.el/empty.png" 'imagemagick)))))
 	(beginning-of-line)
 	(put-text-property
 	 (point) (1+ (point))
@@ -1422,7 +1423,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-concatenate-prime ()
   (interactive)
   (let ((ids (make-hash-table :test #'equal)))
-    (dolist (file (directory-files "/media/sdd1" nil "Encode"))
+    (dolist (file (directory-files "/media/sdb1" nil "Encode"))
       (when (string-match "Encode_1080P_\\([0-9]+\\)" file)
 	(setf (gethash (match-string 1 file) ids) t)))
     (dolist (id (hash-table-keys ids))
@@ -1430,21 +1431,25 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-concatenate-id-1 (id)
   (loop for file in (cons (expand-file-name (format "Encode_1080P_%s.mp4" id)
-					    "/media/sdd1")
+					    "/media/sdb1")
 			  (sort (directory-files
-				 "/media/sdd1"
+				 "/media/sdb1"
 				 t
 				 (format "Encode_1080P_%s_.*.mp4" id))
 				'string-version-lessp))
 	for size = (file-attribute-size (file-attributes file))
+<<<<<<< HEAD
 	while (or t ;; With the extension cord the recorder switches
+=======
+	while (or nil ;; With the extension cord the recorder switches
+>>>>>>> Allow scaling images and stuff
 		  ;; itself off so we don't get all these small files.
 		  (not (= (/ size 1024 1024) 120)))
 	collect file))
 
 (defun movie-concatenate-id (id)
   (let ((files (movie-concatenate-id-1 id))
-	(default-directory "/media/sdd1/")
+	(default-directory "/media/sdb1/")
 	(output (format "/dvd/prime/%s.mp4" id)))
     (when (file-exists-p output)
       (delete-file output))

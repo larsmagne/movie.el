@@ -17,7 +17,7 @@ sub Wanted {
 		   "-sstep", "10",
 		   "-frames", "3",
 		   "$file");
-	    system("convert", "-scale", "150x",
+	    system("convert", "-scale", "300x",
 		   "$dir/00000003.png", "$file.png");
 	    unlink("$dir/00000003.png");
 	    unlink("$dir/00000002.png");
