@@ -63,6 +63,9 @@
      )
   "Command to play a file.")
 
+(defvar movie-image-scale 0.5
+  "Scaling applied to screenshots.")
+
 (defvar movie-genres nil
   "A list of strings that are names of genres.")
 
@@ -351,12 +354,15 @@ Otherwise, goto the start of the buffer."
 		       (concat (plist-get file :file) ".png"))))
 	  (cond
 	   ((file-exists-p png)
-	    (insert-image (create-image png 'imagemagick)))
+	    (insert-image (create-image png 'imagemagick nil
+					:scale movie-image-scale)))
 	   ((and (plist-get file :directoryp)
 		 (file-exists-p (format "%s.png" (cdr dir-data))))
-	    (insert-image (create-image (format "%s.png" (cdr dir-data)) 'imagemagick)))
+	    (insert-image (create-image (format "%s.png" (cdr dir-data)) 'imagemagick nil
+					:scale movie-image-scale)))
 	   (t
-	    (insert-image (create-image "~/src/movie.el/empty.png" 'imagemagick)))))
+	    (insert-image (create-image "~/src/movie.el/empty.png" 'imagemagick nil
+					:scale movie-image-scale)))))
 	(beginning-of-line)
 	(put-text-property
 	 (point) (1+ (point))
