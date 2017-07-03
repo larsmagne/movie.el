@@ -59,7 +59,7 @@
     "-cache-min" "99"
     "-cache" "10000"
     "-utf8"
-    "-subfont-text-scale" "1"
+    "-subfont-text-scale" "2"
      )
   "Command to play a file.")
 
@@ -222,7 +222,7 @@ Otherwise, goto the start of the buffer."
 		 (and (functionp match)
 		      (eq (car atts) t)
 		      (funcall match (movie-get-stats file))))
-	     (not (string-match "\\.png\\'\\|\\.JPG\\'\\|/stats\\|/seen-date\\|txt$\\|~$" file))
+	     (not (string-match "\\.png\\'\\|\\.JPG\\'\\|\\.srt\\'\\|/stats\\|/seen-date\\|txt$\\|~$" file))
 	     (or (and (eq (car atts) nil)
 		      (string-match movie-files (file-name-nondirectory file)))
 		 (and (eq (car atts) t)
@@ -611,10 +611,15 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
-  (if (movie-interlaced-p file)
-      (movie-play-1 (append (movie-add-vf movie-player movie-deinterlace-switch)
-			    (list file)))
-    (movie-play-1 (append movie-player (list file)))))
+  (let ((sub (concat (replace-regexp-in-string "[.][^.]+\\'" "" file) ".srt"))
+	(movie-player (copy-sequence movie-player)))
+    (when (file-exists-p sub)
+      (setq movie-player (append movie-player
+				 (list "-sub" sub))))
+    (if (movie-interlaced-p file)
+	(movie-play-1 (append (movie-add-vf movie-player movie-deinterlace-switch)
+			      (list file)))
+      (movie-play-1 (append movie-player (list file))))))
 
 (defun movie-play-simple (file)
   (interactive (list (movie-current-file)))
