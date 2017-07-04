@@ -40,16 +40,17 @@
 
 (defvar movie-player
   '("mplayer"
+    "-vo" "vdpau"
+    ;;"-vc" "ffmpeg12vdpau,ffwmv3vdpau,ffvc1vdpau,ffh264vdpau,ffodivxvdpau,ffhevcvdpau,"
     "-vf" "screenshot"
     "-framedrop" "-hardframedrop"
     "-nocorrect-pts"
     ;;"-autosync" "30"
     "-volume" "100"
-    "-vo" "xv"
     "-fs"
     "-quiet"
     "-softvol"
-    "-ao" "alsa:device=hw=1.0"
+    "-ao" "alsa:device=hw=2.0"
     "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
     "-delay" "-0.1"
     ;;"-ss" "1"
@@ -690,6 +691,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
+	(insert (format "Player: %s\n\n" player))
 	(apply 'call-process (car player) nil
 	       (current-buffer)
 	       nil (cdr player))
@@ -715,6 +717,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
+	(insert (format "Player: %s\n\n" player))
 	;; mplayer will store the screenshots in the current directory.
 	(setq default-directory dir)
 	(apply 'call-process (car player) nil
