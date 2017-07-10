@@ -1065,7 +1065,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
        (string-to-number (match-string 1 string))))
 
 (defun movie-interlaced-p (file)
-  (and (not (equal (system-name) "novelty.gnus.org"))
+  (and (not (member (system-name) '("mouse" "novelty.gnus.org")))
        (with-temp-buffer
 	 (call-process "mediainfo" nil t nil file)
 	 (goto-char (point-min))
