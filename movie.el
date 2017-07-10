@@ -153,13 +153,14 @@ Otherwise, goto the start of the buffer."
 	  (push (cons 'tracks (nreverse tracks)) data))))
     (nreverse data)))	  
 
-(defun movie-list-parts (match)
+(defun movie-list-parts (match &optional only-unseen)
   "Limit the buffer to matching genres."
   (interactive
    (list
     (completing-read "Match: " (append movie-genres
 				       (list "nostats" "unseen" "all"
-					     "mostly-seen")))))
+					     "mostly-seen")))
+    current-prefix-arg))
   (movie-browse
    default-directory movie-order
    (cond
@@ -178,6 +179,8 @@ Otherwise, goto the start of the buffer."
      `(lambda (stats)
 	(let ((genres (cdr (assoc "Genre" stats))))
 	  (and genres
+	       (or (not only-unseen)
+		   (null (assoc "Seen" stats)))
 	       (member ,match (split-string genres ",")))))))))
 
 (defun movie-list-by-year ()
