@@ -29,6 +29,7 @@
 (require 'time-date)
 (require 'imdb)
 (require 'mkv)
+(require 'subr-x)
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
@@ -41,6 +42,7 @@
   '("mplayer"
     "-vf" "screenshot"
     ;;"-framedrop" "-hardframedrop"
+    "-autosync" "30"
     "-volume" "100"
     "-vo" "xv"
     "-fs"
@@ -84,6 +86,8 @@ the lines in the image and lots of stairing).")
 
 (defvar movie-file-id nil)
 
+(defvar movie-deletion-process nil)
+
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
   (interactive "DDirectory: ")
@@ -110,6 +114,8 @@ the lines in the image and lots of stairing).")
       (setq directory (concat directory "/")))
     (setq default-directory directory)
     (setq-local mode-line-misc-info (movie-buffer-identification directory))
+    (unless movie-deletion-process
+      (setq movie-deletion-process (run-at-time 1 10 'movie-delete-scheduled)))
     (movie-goto-logical-line)))
 
 (defun movie-goto-logical-line ()
@@ -233,9 +239,11 @@ Otherwise, goto the start of the buffer."
 				   (string-to-number year)
 				 9999))
 		      :genre ,(cdr (assoc "Genre" (movie-get-stats file)))
+		      :title ,(cdr (assoc "Title" (movie-get-stats file)))
+		      :imdb ,(cdr (assoc "IMDB" (movie-get-stats file)))
 		      :director
 		      ,(let ((director (cdr (assoc "Director"
-					       (movie-get-stats file)))))
+						   (movie-get-stats file)))))
 			 (or director ""))
 		      :country
 		      ,(let ((country (cdr (assoc "Country"
@@ -442,7 +450,10 @@ Otherwise, goto the start of the buffer."
     (define-key map "-" 'movie-collapse)
     (define-key map "i" 'movie-mark-as-seen)
     (define-key map "a" 'movie-add-stats)
+    (define-key map "u" 'movie-undo-delete)
     (define-key map "U" 'movie-update-stats-file)
+    (define-key map "p" 'movie-popup-menu)
+    (define-key map "P" 'movie-rotate-screen)
     (define-key map "." 'end-of-buffer)
     (define-key map "," 'beginning-of-buffer)
     (define-key map "}" 'scroll-down-command)
@@ -484,8 +495,8 @@ Otherwise, goto the start of the buffer."
 	""
       (format "%s %s %s"
 	      (or (cdr (assoc "Year" stats)) "")
-	      (or (cdr (assoc "Director" stats)))
-	      (or (cdr (assoc "Country" stats)))))))
+	      (or (cdr (assoc "Director" stats)) "")
+	      (or (cdr (assoc "Country" stats)) "")))))
 
 (defun movie-find-file (file)
   "Find or play the file under point."
@@ -498,6 +509,7 @@ Otherwise, goto the start of the buffer."
 (defun movie-play-best-file (file)
   "Play the longest file in the directory/file under point."
   (interactive (list (movie-current-file)))
+  (call-process "pkill" nil nil nil "touchegg")
   (when (file-directory-p file)
     (setf file (movie-best-file file)))
   (movie-find-file file))
@@ -676,15 +688,16 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (let* ((path (file-truename (car (last player))))
 	   (file (file-name-nondirectory
 		  (directory-file-name (file-name-directory path))))
-	   (dir (format "~/.emacs.d/screenshots/%s/"
-			(if (zerop (length file))
-			    "unknown"
-			  file)))
+	   (dir (format ;;"~/.emacs.d/screenshots/%s/"
+		 "/var/tmp/screenshots/%s/"
+		 (if (zerop (length file))
+		     "unknown"
+		   file)))
 	   (highest (movie-find-highest-image)))
       ;; For /dvd playing, we store the screenshots in the DVD
       ;; directory.
-      (when (string-match "^/dvd/" path)
-	(setq dir (file-name-directory path)))
+      ;;(when (string-match "^/dvd/" path)
+      ;; (setq dir (file-name-directory path)))
       (when (file-symlink-p "~/.movie-current")
 	(delete-file "~/.movie-current"))
       (make-symbolic-link dir "~/.movie-current")
@@ -699,7 +712,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (current-buffer)
 	       nil (cdr player))
 	(movie-update-mplayer-position (car (last player)))
-	(movie-copy-images-higher-than highest dir))))
+	(movie-copy-images-higher-than highest dir))
+      (let ((stats (expand-file-name "stats" (file-name-directory path))))
+	(when (file-exists-p stats)
+	  (copy-file stats (expand-file-name "stats" dir) t)))))
   (movie-update-stats-position (car (last player))))
 
 (defun movie-update-mplayer-position (file)
@@ -733,31 +749,63 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (let ((new-file (expand-file-name (file-name-nondirectory file) dir)))
 	(call-process "convert" nil nil nil "-resize" "1000x" file new-file)))))
 
+(defvar movie-scheduled-deletions nil)
+
 (defun movie-delete-file (file)
   "Delete the file under point."
   (interactive (list (movie-current-file)))
-  (when (y-or-n-p (format "Really delete %s? " file))
-    (if (file-directory-p file)
-	(progn
-	  (let ((files (directory-files file t)))
-	    (cond
-	     ((= (length files) 2)
-	      (delete-directory file))
-	     ((string-match "/torrent" file)
-	      (delete-directory file t))
-	     (t
-	      (error "Directory not empty")))))
-      (delete-file file)
-      (let ((png (concat file ".png")))
-	(when (file-exists-p png)
-	  (delete-file png))))
+  (when (and (file-directory-p file)
+	     (not (string-match "/torrent" file))
+	     (not (= (length (directory-files-recursively file ".") 2))))
+    (error "Directory not empty"))
+  (beginning-of-line)
+  (let ((new-name (expand-file-name
+		   (concat ".deleted-" (file-name-nondirectory file))
+		   (file-name-directory file))))
+    (push (list :name file
+		:deletion-name new-name
+		:time (float-time)
+		:display (buffer-substring (point) (line-beginning-position 2)))
+	  movie-scheduled-deletions)
+    (rename-file file new-name))
+  (delete-region (point) (line-beginning-position 2))
+  (when (and (not (bobp))
+	     (eq movie-order 'chronological))
+    (forward-line -1))
+  (unless (eobp)
+    (forward-char 1)))
+
+(defun movie-undo-delete ()
+  "Undo a scheduled deletion."
+  (interactive)
+  (let ((elem (pop movie-scheduled-deletions)))
+    (unless elem
+      (error "No further deletions scheduled"))
+    (unless (file-exists-p (plist-get elem :deletion-name))
+      (error "File %s has been completely deleted"))
     (beginning-of-line)
-    (delete-region (point) (line-beginning-position 2))
-    (when (and (not (bobp))
-	       (eq movie-order 'chronological))
-      (forward-line -1))
-    (unless (eobp)
-      (forward-char 1))))
+    (insert (plist-get elem :display))
+    (forward-line -1)
+    (rename-file (plist-get elem :deletion-name)
+		 (plist-get elem :name))))
+
+(defun movie-delete-scheduled ()
+  (dolist (elem movie-scheduled-deletions)
+    (when (> (- (float-time) 60)
+	     (plist-get elem :time))
+      ;; More than a minute has passed, so delete.
+      (let ((file (plist-get elem :deletion-name)))
+	(when (file-exists-p file)
+	  (message "Deleting %s..." file)
+	  (if (file-directory-p file)
+	      (delete-directory file t)
+	    (delete-file file)
+	    (let ((png (concat (plist-get elem :name) ".png")))
+	      (when (file-exists-p png)
+		(delete-file png))))
+	  (message "Deleting %s...done" file)))
+      (setq movie-scheduled-deletions
+	    (delete elem movie-scheduled-deletions)))))
 
 (defun movie-add-stats (dir &optional no-director)
   "Add a stats file to the directory under point."
@@ -1236,7 +1284,6 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		      ;; 70GB.
 		      (* 1000 1000 1000 70)))
 	       (not (string-match "comics" (plist-get movie :genre)))
-	       (not (string-match "James Bond" (plist-get movie :genre)))
 	       )
       (let ((file (plist-get movie :file)))
 	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
@@ -1322,6 +1369,121 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (if (not results)
 	(message "Not seen %s" (plist-get data :name))
       (message "%s" (mapconcat 'identity (nreverse results) "\n")))))
+
+(defun movie-title (movie)
+  (replace-regexp-in-string "\\`\\(The\\|A\\) " ""
+			    (or (plist-get movie :title) "")))
+
+(defun movie-create-unseen-html ()
+  "Create a simple HTML page for unseen films."
+  (interactive)
+  (with-temp-file "/tmp/unseen.html"
+    (insert "<html>")
+    (insert "<meta charset=utf-8><body>")
+    (dolist (movie (sort (movie-get-files "/dvd")
+			 (lambda (m1 m2)
+			   (string< (movie-title m1) (movie-title m2)))))
+      (when (and (not (plist-get movie :seen))
+		 (not (plist-get movie :mostly-seen))
+		 (plist-get movie :genre)
+		 (not (string-match "Star Trek" (plist-get movie :file)))
+		 (not (string-match "Allen" (plist-get movie :director)))
+		 (not (string-match "tv" (plist-get movie :genre)))
+		 (not (string-match "comics" (plist-get movie :genre))))
+	(if (plist-get movie :imdb)
+	    (insert
+	     (format "<a href=\"http://www.imdb.com/title/%s/?ref_=nv_sr_1\">%s</a>"
+		     (plist-get movie :imdb)
+		     (plist-get movie :title)))
+	  (insert (plist-get movie :title)))
+	(insert "<br>\n")))
+    (message "%s unseen" (count-lines (point-min) (point-max))))
+  (call-process "scp" nil nil nil "/tmp/unseen.html" "www@quimby:html/s/"))
+
+(defvar movie-upload-file-command '("ncftpput" "host" "/sdcard"))
+
+(defun movie-upload-file (file)
+  "Upload the file under point to the Galaxy View."
+  (interactive (list (movie-current-file)))
+  (when (file-directory-p file)
+    (setf file (movie-best-file file)))
+  (message "Uploading %s..." file)
+  (apply 'start-process
+	 "uploading" (get-buffer-create "*upload*")
+	 (car movie-upload-file-command)
+	 (append (cdr movie-upload-file-command)
+		 (list file))))
+
+(defun movie-delete-superfluous-thumbnails ()
+  (interactive)
+  (let ((tail "[.]png\\'"))
+    (dolist (png (directory-files-recursively "/tv/torrent" tail))
+      (let ((base (replace-regexp-in-string tail "" png)))
+	(unless (file-exists-p base)
+	  (message "%s" png)
+	  (delete-file png))))))
+
+(defun movie-concatenate-prime ()
+  (interactive)
+  (let ((ids (make-hash-table :test #'equal)))
+    (dolist (file (directory-files "/media/sdd1" nil "Encode"))
+      (when (string-match "Encode_1080P_\\([0-9]+\\)" file)
+	(setf (gethash (match-string 1 file) ids) t)))
+    (dolist (id (hash-table-keys ids))
+      (movie-concatenate-id id))))
+
+(defun movie-concatenate-id-1 (id)
+  (loop for file in (cons (expand-file-name (format "Encode_1080P_%s.mp4" id)
+					    "/media/sdd1")
+			  (sort (directory-files
+				 "/media/sdd1"
+				 t
+				 (format "Encode_1080P_%s_.*.mp4" id))
+				'string-version-lessp))
+	for size = (file-attribute-size (file-attributes file))
+	while (or t ;; With the extension cord the recorder switches
+		  ;; itself off so we don't get all these small files.
+		  (not (= (/ size 1024 1024) 120)))
+	collect file))
+
+(defun movie-concatenate-id (id)
+  (let ((files (movie-concatenate-id-1 id))
+	(default-directory "/media/sdd1/")
+	(output (format "/dvd/prime/%s.mp4" id)))
+    (when (file-exists-p output)
+      (delete-file output))
+    (message "concatting %s" files)
+    (apply 'call-process "vconcat-video" nil (get-buffer-create "*concat*") nil
+	   output
+	   files)))
+
+(defun movie-popup-menu ()
+  "Allow some touch actions."
+  (interactive)
+  (let* ((last-nonmenu-event '(t))
+	 (action
+	  (read-multiple-choice
+	   "Choose action"
+	   '((?d "Delete" movie-delete-file)
+	     (?u "Undelete" movie-undo-delete)
+	     (?p "Play" movie-play-best-file)
+	     (?r "Rotate" movie-rotate-screen)
+	     (?c "Cancel")))))
+    (message "")
+    (when (and action
+	       (caddr action))
+      (call-interactively (caddr action)))))   
+
+(defvar movie-rotation nil)
+
+(defun movie-rotate-screen ()
+  "Change screen rotation."
+  (interactive)
+  (call-process "xrandr" nil nil nil "--output" "eDP-1-1" "--rotate"
+		(if movie-rotation
+		    "normal"
+		  "inverted"))
+  (setq movie-rotation (not movie-rotation)))
 
 (provide 'movie)
 
