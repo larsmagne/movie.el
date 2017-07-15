@@ -40,11 +40,13 @@
 
 (defvar movie-player
   '("mplayer"
+    "-vo" "vdpau"
+    ;;"-vc" "ffmpeg12vdpau,ffwmv3vdpau,ffvc1vdpau,ffh264vdpau,ffodivxvdpau,ffhevcvdpau,"
     "-vf" "screenshot"
-    ;;"-framedrop" "-hardframedrop"
-    "-autosync" "30"
+    "-framedrop" "-hardframedrop"
+    "-nocorrect-pts"
+    ;;"-autosync" "30"
     "-volume" "100"
-    "-vo" "xv"
     "-fs"
     "-quiet"
     "-softvol"
@@ -58,9 +60,12 @@
     "-cache-min" "99"
     "-cache" "10000"
     "-utf8"
-    "-subfont-text-scale" "3"
+    "-subfont-text-scale" "2"
      )
   "Command to play a file.")
+
+(defvar movie-image-scale 0.5
+  "Scaling applied to screenshots.")
 
 (defvar movie-genres nil
   "A list of strings that are names of genres.")
@@ -221,7 +226,7 @@ Otherwise, goto the start of the buffer."
 		 (and (functionp match)
 		      (eq (car atts) t)
 		      (funcall match (movie-get-stats file))))
-	     (not (string-match "\\.png\\'\\|\\.JPG\\'\\|/stats\\|/seen-date\\|txt$\\|~$" file))
+	     (not (string-match "\\.png\\'\\|\\.JPG\\'\\|\\.srt\\'\\|/stats\\|/seen-date\\|txt$\\|~$" file))
 	     (or (and (eq (car atts) nil)
 		      (string-match movie-files (file-name-nondirectory file)))
 		 (and (eq (car atts) t)
@@ -353,12 +358,15 @@ Otherwise, goto the start of the buffer."
 		       (concat (plist-get file :file) ".png"))))
 	  (cond
 	   ((file-exists-p png)
-	    (insert-image (create-image png)))
+	    (insert-image (create-image png 'imagemagick nil
+					:scale movie-image-scale)))
 	   ((and (plist-get file :directoryp)
 		 (file-exists-p (format "%s.png" (cdr dir-data))))
-	    (insert-image (create-image (format "%s.png" (cdr dir-data)))))
+	    (insert-image (create-image (format "%s.png" (cdr dir-data)) 'imagemagick nil
+					:scale movie-image-scale)))
 	   (t
-	    (insert-image (create-image "~/tmp/empty.png")))))
+	    (insert-image (create-image "~/src/movie.el/empty.png" 'imagemagick nil
+					:scale movie-image-scale)))))
 	(beginning-of-line)
 	(put-text-property
 	 (point) (1+ (point))
@@ -607,10 +615,15 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
-  (if (movie-interlaced-p file)
-      (movie-play-1 (append (movie-add-vf movie-player movie-deinterlace-switch)
-			    (list file)))
-    (movie-play-1 (append movie-player (list file)))))
+  (let ((sub (concat (replace-regexp-in-string "[.][^.]+\\'" "" file) ".srt"))
+	(movie-player (copy-sequence movie-player)))
+    (when (file-exists-p sub)
+      (setq movie-player (append movie-player
+				 (list "-sub" sub))))
+    (if (movie-interlaced-p file)
+	(movie-play-1 (append (movie-add-vf movie-player movie-deinterlace-switch)
+			      (list file)))
+      (movie-play-1 (append movie-player (list file))))))
 
 (defun movie-play-simple (file)
   (interactive (list (movie-current-file)))
@@ -681,6 +694,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
+	(insert (format "Player: %s\n\n" player))
 	(apply 'call-process (car player) nil
 	       (current-buffer)
 	       nil (cdr player))
@@ -706,6 +720,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
+	(insert (format "Player: %s\n\n" player))
 	;; mplayer will store the screenshots in the current directory.
 	(setq default-directory dir)
 	(apply 'call-process (car player) nil
@@ -1426,7 +1441,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-concatenate-prime ()
   (interactive)
   (let ((ids (make-hash-table :test #'equal)))
-    (dolist (file (directory-files "/media/sdd1" nil "Encode"))
+    (dolist (file (directory-files "/media/sdb1" nil "Encode"))
       (when (string-match "Encode_1080P_\\([0-9]+\\)" file)
 	(setf (gethash (match-string 1 file) ids) t)))
     (dolist (id (hash-table-keys ids))
@@ -1434,21 +1449,25 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-concatenate-id-1 (id)
   (loop for file in (cons (expand-file-name (format "Encode_1080P_%s.mp4" id)
-					    "/media/sdd1")
+					    "/media/sdb1")
 			  (sort (directory-files
-				 "/media/sdd1"
+				 "/media/sdb1"
 				 t
 				 (format "Encode_1080P_%s_.*.mp4" id))
 				'string-version-lessp))
 	for size = (file-attribute-size (file-attributes file))
+<<<<<<< HEAD
 	while (or t ;; With the extension cord the recorder switches
+=======
+	while (or nil ;; With the extension cord the recorder switches
+>>>>>>> Allow scaling images and stuff
 		  ;; itself off so we don't get all these small files.
 		  (not (= (/ size 1024 1024) 120)))
 	collect file))
 
 (defun movie-concatenate-id (id)
   (let ((files (movie-concatenate-id-1 id))
-	(default-directory "/media/sdd1/")
+	(default-directory "/media/sdb1/")
 	(output (format "/dvd/prime/%s.mp4" id)))
     (when (file-exists-p output)
       (delete-file output))
