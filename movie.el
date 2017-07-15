@@ -1271,7 +1271,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	    (track (assoc (file-name-nondirectory file)
 			  (cdr (assoc 'tracks stats)))))
 	(when (and position track)
-	  (plist-put (delete 'list (cdr track)) :seen
+	  (plist-put (delq 'list (cdr track)) :seen
 		     (append (plist-get (cdr track) :seen)
 			     (list (string-to-number position)
 				   (format-time-string "%Y%m%dT%H%M%S"))))
