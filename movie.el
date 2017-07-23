@@ -616,11 +616,15 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
-  (let ((sub (concat (replace-regexp-in-string "[.][^.]+\\'" "" file) ".srt"))
+  (let ((subs (list
+	       (concat (replace-regexp-in-string "[.][^.]+\\'" "" file) ".srt")
+	       (concat (replace-regexp-in-string
+			"[.][^.]+\\'" "" file) "_eng.srt")))
 	(movie-player (copy-sequence movie-player)))
-    (when (file-exists-p sub)
-      (setq movie-player (append movie-player
-				 (list "-sub" sub))))
+    (dolist (sub subs)
+      (when (file-exists-p sub)
+	(setq movie-player (append movie-player
+				   (list "-sub" sub)))))
     (if (movie-interlaced-p file)
 	(movie-play-1 (append (movie-add-vf movie-player movie-deinterlace-switch)
 			      (list file)))
