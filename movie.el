@@ -40,7 +40,7 @@
 
 (defvar movie-player
   '("mplayer"
-    "-vo" "vdpau"
+    "-vo" "gl"
     ;;"-vc" "ffmpeg12vdpau,ffwmv3vdpau,ffvc1vdpau,ffh264vdpau,ffodivxvdpau,ffhevcvdpau,"
     "-vf" "screenshot"
     "-framedrop" "-hardframedrop"
