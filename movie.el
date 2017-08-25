@@ -585,11 +585,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	      ((eq char ?x)
 	       (setq options (append options (list "-vo" "xv"))))
 	      ((eq char ?4)
-	       (setq options (append options (list "-aspect=4:3"))))
+	       (setq options (append options (list "-aspect" "4:3"))))
 	      ((eq char ?a)
 	       (setq options (append options (list "-monitoraspect=4:3"))))
 	      ((eq char ?9)
-	       (setq options (append options (list "-aspect=16:9"))))
+	       (setq options (append options (list "-aspect" "16:9"))))
 	      ((eq char ?n)
 	       (setq movie-dvdnav-p t))
 	      (t
