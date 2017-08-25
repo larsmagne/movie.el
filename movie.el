@@ -585,10 +585,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	      ((eq char ?x)
 	       (setq options (append options (list "-vo" "xv"))))
 	      ((eq char ?4)
-	       (setq options (append options (list "--aspectratio=4:3"))))
+	       (setq options (append options (list "-aspect=4:3"))))
 	      ((eq char ?a)
-	       (setq options
-		     (movie-add-vf options "-monitoraspect=4:3")))
+	       (setq options (append options (list "-monitoraspect=4:3"))))
+	      ((eq char ?9)
+	       (setq options (append options (list "-aspect=16:9"))))
 	      ((eq char ?n)
 	       (setq movie-dvdnav-p t))
 	      (t
@@ -1456,11 +1457,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 				 (format "Encode_1080P_%s_.*.mp4" id))
 				'string-version-lessp))
 	for size = (file-attribute-size (file-attributes file))
-<<<<<<< HEAD
 	while (or t ;; With the extension cord the recorder switches
-=======
-	while (or nil ;; With the extension cord the recorder switches
->>>>>>> Allow scaling images and stuff
 		  ;; itself off so we don't get all these small files.
 		  (not (= (/ size 1024 1024) 120)))
 	collect file))
