@@ -1443,10 +1443,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (message "%s" png)
 	  (delete-file png))))))
 
+(defvar movie-prime-directory "/media/sdd1")
+
 (defun movie-concatenate-prime ()
   (interactive)
   (let ((ids (make-hash-table :test #'equal)))
-    (dolist (file (directory-files "/media/sdb1" nil "Encode"))
+    (dolist (file (directory-files movie-prime-directory nil "Encode"))
       (when (string-match "Encode_1080P_\\([0-9]+\\)" file)
 	(setf (gethash (match-string 1 file) ids) t)))
     (dolist (id (hash-table-keys ids))
@@ -1454,9 +1456,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-concatenate-id-1 (id)
   (loop for file in (cons (expand-file-name (format "Encode_1080P_%s.mp4" id)
-					    "/media/sdb1")
+					    movie-prime-directory)
 			  (sort (directory-files
-				 "/media/sdb1"
+				 movie-prime-directory
 				 t
 				 (format "Encode_1080P_%s_.*.mp4" id))
 				'string-version-lessp))
@@ -1468,7 +1470,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-concatenate-id (id)
   (let ((files (movie-concatenate-id-1 id))
-	(default-directory "/media/sdb1/")
+	(default-directory movie-prime-directory)
 	(output (format "/dvd/prime/%s.mp4" id)))
     (when (file-exists-p output)
       (delete-file output))
@@ -1504,6 +1506,22 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		    "normal"
 		  "inverted"))
   (setq movie-rotation (not movie-rotation)))
+
+(defun movie-rename-collection (match)
+  (dolist (dir (directory-files "/dvd" t match))
+    (let ((films (mapcar 'string-trim
+			 (split-string
+			  (replace-regexp-in-string
+			   "^[^:]+?: " "" (file-name-nondirectory dir))
+			  ","))))
+      (loop for file in (directory-files dir t ".mkv$")
+	    for film in films
+	    for new-dir = (expand-file-name film "/dvd")
+	    when (and (not (file-exists-p new-dir))
+		      (y-or-n-p (format "Rename %s to %s?"
+					file new-dir)))
+	    do (make-directory new-dir)
+	    (rename-file file new-dir)))))
 
 (provide 'movie)
 
