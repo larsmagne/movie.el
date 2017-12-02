@@ -43,8 +43,7 @@
     "-vo" "gl"
     ;;"-vc" "ffmpeg12vdpau,ffwmv3vdpau,ffvc1vdpau,ffh264vdpau,ffodivxvdpau,ffhevcvdpau,"
     "-vf" "screenshot"
-    "-framedrop" "-hardframedrop"
-    "-nocorrect-pts"
+    "-framedrop" "-hardframedrop" "-nocorrect-pts"
     ;;"-autosync" "30"
     "-volume" "100"
     "-fs"
@@ -571,7 +570,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (interactive)
   (let ((options '("-vf" "screenshot"))
 	(command nil)
-	(movie-dvdnav-p nil))
+	(movie-dvdnav-p nil)
+	(player (copy-list movie-player)))
     (while (let ((char (read-char "")))
 	     (cond
 	      ((eq char ?c)
@@ -588,6 +588,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (setq options (append options (list "-aspect" "4:3"))))
 	      ((eq char ?a)
 	       (setq options (append options (list "-monitoraspect=4:3"))))
+	      ((eq char ?d)
+	       (dolist (elem '("-framedrop" "-hardframedrop" "-nocorrect-pts"))
+		 (setq player (delete elem player))))
 	      ((eq char ?9)
 	       (setq options (append options (list "-aspect" "16:9"))))
 	      ((eq char ?n)
@@ -598,7 +601,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       nil))))
     (when (eq command 'movie-find-file)
       (setq command 'movie-play-simple))
-    (let ((movie-player (append movie-player options)))
+    (let ((movie-player (append player options)))
       (call-interactively command))))
 
 (defun movie-add-vf (options vf)
@@ -1299,10 +1302,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (plist-get movie :genre)
 	       (not (string-match "Star Trek" (plist-get movie :file)))
 	       (not (string-match "Allen" (plist-get movie :director)))
-	       (or (not (string-match "tv" (plist-get movie :genre)))
-		   (< (movie-film-size (plist-get movie :file))
-		      ;; 70GB.
-		      (* 1000 1000 1000 70)))
+	       (not (string-match "tv" (plist-get movie :genre)))
 	       (not (string-match "comics" (plist-get movie :genre)))
 	       )
       (let ((file (plist-get movie :file)))
