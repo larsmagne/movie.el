@@ -590,7 +590,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (setq options (append options (list "-monitoraspect=4:3"))))
 	      ((eq char ?d)
 	       (dolist (elem '("-framedrop" "-hardframedrop" "-nocorrect-pts"))
-		 (setq player (delete elem player))))
+		 (setq player (delete elem player)))
+	       t)
 	      ((eq char ?9)
 	       (setq options (append options (list "-aspect" "16:9"))))
 	      ((eq char ?n)
@@ -749,11 +750,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (coding-system-for-read 'utf-8)
 	  (coding-system-for-write 'utf-8))
       (with-temp-buffer
-	(insert-file-contents movie-positions-file)
-	(goto-char (point-max))
 	(insert (format "%s %s\n" position (file-name-nondirectory file)))
 	(write-region (point-min) (point-max) movie-positions-file
-		      nil 'nomessage)))))
+		      'append 'nomessage)))))
 
 (defun movie-find-highest-image ()
   (car
@@ -1443,7 +1442,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (message "%s" png)
 	  (delete-file png))))))
 
-(defvar movie-prime-directory "/media/sdd1")
+(defvar movie-prime-directory "/media/sdc1")
 
 (defun movie-concatenate-prime ()
   (interactive)
