@@ -582,6 +582,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		     (movie-add-vf options "crop=700:300")))
 	      ((eq char ?i)
 	       (setq options (movie-add-vf options movie-deinterlace-switch)))
+	      ((eq char ?I)
+	       (setq options (movie-remove-vf options movie-deinterlace-switch)))
 	      ((eq char ?x)
 	       (setq options (append options (list "-vo" "xv"))))
 	      ((eq char ?4)
@@ -612,6 +614,25 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(append options (list "-vf" vf))
       (setcar (cdr old)
 	      (concat vf "," (cadr old)))
+      options)))
+
+(defun movie-remove-vf (options vf)
+  (setq options (copy-list options))
+  (let ((old (member "-vf" options)))
+    (if (not old)
+	options
+      (setcar (cdr old)
+	      (mapconcat
+	       #'identity
+	       (delq
+		nil
+		(mapcar
+		 (lambda (elem)
+		   (if (equal elem vf)
+		       nil
+		     elem))
+		 (split-string (cadr old) ",")))
+	       ","))
       options)))
 
 (defun movie-play-high-volume (file)
