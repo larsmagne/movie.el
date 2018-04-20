@@ -1,5 +1,5 @@
 ;;; movie.el --- playing movies
-;; Copyright (C) 2004-2015 Lars Magne Ingebrigtsen
+;; Copyright (C) 2004-2018 Lars Magne Ingebrigtsen
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: extensions, processes
@@ -39,28 +39,14 @@
   "Regexp to match movie files.")
 
 (defvar movie-player
-  '("mplayer"
-    "-vo" "gl"
-    ;;"-vc" "ffmpeg12vdpau,ffwmv3vdpau,ffvc1vdpau,ffh264vdpau,ffodivxvdpau,ffhevcvdpau,"
-    "-vf" "screenshot"
-    "-framedrop" "-hardframedrop" "-nocorrect-pts"
-    ;;"-autosync" "30"
-    "-volume" "100"
-    "-fs"
-    "-quiet"
-    "-softvol"
-    "-ao" "alsa:device=hw=2.0"
-    "-heartbeat-cmd" "/home/larsi/src/movie.el/xscreensave-off"
-    "-delay" "-0.1"
-    ;;"-ss" "1"
-    ;; Pause at the end of files.
-    ;;"-loop" "0"
-    "-mouse-movements"
-    "-cache-min" "99"
-    "-cache" "10000"
-    "-utf8"
-    "-subfont-text-scale" "2"
-     )
+  '("/home/larsi/src/mpv/build/mpv"
+    "--audio-device=alsa/plughw:CARD=Device,DEV=0"
+    "--vo=gpu"
+    "--hwdec=vdpau"
+    ;;"--tone-mapping=clip" "--tone-mapping-param=1"
+    "--input-ipc-server=/tmp/mpv-socket"
+    "--fullscreen"
+    )
   "Command to play a file.")
 
 (defvar movie-image-scale 0.5
@@ -437,7 +423,6 @@ Otherwise, goto the start of the buffer."
     (define-key map [backspace] 'movie-delete-file)
     (define-key map [deletechar] 'movie-delete-file)
     (define-key map "d" 'movie-play-dvd)
-    (define-key map "v" 'movie-play-mpv)
     (define-key map "D" 'movie-play-whole-dvd)
     (define-key map "W" 'movie-play-total-dvd)
     (define-key map "V" 'movie-play-vlc-dvd)
@@ -513,18 +498,6 @@ Otherwise, goto the start of the buffer."
       (movie-browse file 'alphabetical)
     (movie-play file)
     (discard-input)))
-
-(defun movie-play-mpv (file)
-  "Play using mpv."
-  (interactive (list (movie-current-file)))
-  (with-current-buffer (get-buffer-create "*mplayer*")
-    (call-process "/home/larsi/src/mpv/build/mpv" nil (current-buffer) nil
-		  "--audio-device=alsa/plughw:CARD=Device,DEV=0"
-		  "--vo=gpu"
-		  "--hwdec=vdpau"
-		  ;;"--tone-mapping=clip" "--tone-mapping-param=1"
-		  "--fullscreen"
-		  file)))
 
 (defun movie-play-best-file (file)
   "Play the longest file in the directory/file under point."
@@ -712,40 +685,79 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (format "%d" (max (- (string-to-number (match-string 0))
 				    (if no-skip 0 2))
 				 0))))))))
+
+(defun movie-start-mpv (command &optional wait)
+  (interactive (list (append movie-player
+			     (list (read-file-name "File: ")))))
+  (with-current-buffer (get-buffer-create "*mplayer*")
+    (when (file-exists-p "/tmp/mpv-socket")
+      (delete-file "/tmp/mpv-socket"))
+    (let ((mpv (apply 'start-process "mpv" (current-buffer) command))
+	  socket)
+      (while (not (file-exists-p "/tmp/mpv-socket"))
+	(sleep-for 0.1))
+      (setq socket
+	    (make-network-process
+	     :name "talk-mpv"
+	     :service "/tmp/mpv-socket"
+	     :buffer (get-buffer-create "*mpv*")
+	     :family 'local))
+      (movie-send-mpv-command '((command . ["observe_property" 1 "time-pos"])))
+      (when wait
+	(while (process-live-p mpv)
+	  (sleep-for 0.1))))))
+
+(defun movie-send-mpv-command (command)
+  (with-current-buffer "*mpv*"
+    (process-send-string
+     (get-buffer-process (current-buffer))
+     (format "%s\n" (json-encode command)))))
+
+(defvar movie-anim-number 0)
+
+(defun movie-record-gif ()
+  "Start/stop recording an animation."
+  (interactive)
+  (movie-send-mpv-command
+   `((command . ["screenshot-template"
+		 ,(format "anim%s-%%n" (incf movie-anim-number))])))
+  (movie-send-mpv-command
+   `((command . ["screenshot" "video" "each-frame"]))))
+
+(defvar movie-audio-devices
+  '("alsa/plughw:CARD=Device,DEV=0"	; Headphones
+    "alsa/plughw:CARD=NVidia,DEV=7"	; TV
+    "alsa/plughw:CARD=PCH,DEV=0")) ; Speakers
+
+(defvar movie-current-audio-device 0)
+
+(defun movie-rotate-audio ()
+  "Change the audio output."
+  (interactive)
+  (movie-send-mpv-command
+   `((command . ["set_property" "audio-device"
+		 ,(elt movie-audio-devices
+		       (mod (incf movie-current-audio-device)
+			    (length movie-audio-devices)))]))))
   
 (defun movie-play-1 (player)
-  ;; Kill off the glibc malloc checks that would make mplayer hang on
-  ;; exit some times (due to double free()s).
-  (setenv "MALLOC_CHECK" "0")
   (let ((skip (movie-find-position
 	       (or movie-file-id
 		   (car (last player))))))
     (when skip
       (setq player (cons (pop player)
-			 (append (list "-ss" skip)
-				 player)))))
-  ;; The prefix command has been used to switch on libdvdnav playing.
-  (when movie-dvdnav-p
-    (let ((file (last movie-player)))
-      (when (string-match "^dvd:" (car file))
-	(setcar file (concat "dvdnav:" (substring (car file) 4)))))
-    (unless (member "-ss" player)
-      (setq player (cons (pop player)
-			 (append (list "-ss" "1")
+			 (append (list (format "--start=%s" skip))
 				 player)))))
   (if (not movie-picture-directory)
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
-	(insert (format "Player: %s\n\n" player))
-	(apply 'call-process (car player) nil
-	       (current-buffer)
-	       nil (cdr player))
+	(movie-start-mpv player t)
 	(movie-update-mplayer-position (car (last player))))
     (let* ((path (file-truename (car (last player))))
 	   (file (file-name-nondirectory
 		  (directory-file-name (file-name-directory path))))
-	   (dir (format ;;"~/.emacs.d/screenshots/%s/"
+	   (dir (format
 		 "/var/tmp/screenshots/%s/"
 		 (if (zerop (length file))
 		     "unknown"
@@ -763,12 +775,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
-	(insert (format "Player: %s\n\n" player))
 	;; mplayer will store the screenshots in the current directory.
 	(setq default-directory dir)
-	(apply 'call-process (car player) nil
-	       (current-buffer)
-	       nil (cdr player))
+	(movie-start-mpv player t)
 	(movie-update-mplayer-position (car (last player)))
 	(movie-copy-images-higher-than highest dir))
       (let ((stats (expand-file-name "stats" (file-name-directory path))))
@@ -777,16 +786,19 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (movie-update-stats-position (car (last player))))
 
 (defun movie-update-mplayer-position (file)
-  (goto-char (point-max))
-  (when (and (file-exists-p movie-positions-file)
-	     (re-search-backward "^@p \\([0-9.]+\\)" nil t))
-    (let ((position (match-string 1))
-	  (coding-system-for-read 'utf-8)
-	  (coding-system-for-write 'utf-8))
-      (with-temp-buffer
-	(insert (format "%s %s\n" position (file-name-nondirectory file)))
-	(write-region (point-min) (point-max) movie-positions-file
-		      'append 'nomessage)))))
+  (with-current-buffer "*mpv*"
+    (goto-char (point-max))
+    (when (and (file-exists-p movie-positions-file)
+	       (re-search-backward "time-pos" nil t))
+      (beginning-of-line)
+      (let* ((json (json-read))
+	     (position (cdr (assq 'data json)))
+	     (coding-system-for-read 'utf-8)
+	     (coding-system-for-write 'utf-8))
+	(with-temp-buffer
+	  (insert (format "%s %s\n" position (file-name-nondirectory file)))
+	  (write-region (point-min) (point-max) movie-positions-file
+			'append 'nomessage))))))
 
 (defun movie-find-highest-image ()
   (car
