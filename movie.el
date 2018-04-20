@@ -437,6 +437,7 @@ Otherwise, goto the start of the buffer."
     (define-key map [backspace] 'movie-delete-file)
     (define-key map [deletechar] 'movie-delete-file)
     (define-key map "d" 'movie-play-dvd)
+    (define-key map "v" 'movie-play-mpv)
     (define-key map "D" 'movie-play-whole-dvd)
     (define-key map "W" 'movie-play-total-dvd)
     (define-key map "V" 'movie-play-vlc-dvd)
@@ -512,6 +513,18 @@ Otherwise, goto the start of the buffer."
       (movie-browse file 'alphabetical)
     (movie-play file)
     (discard-input)))
+
+(defun movie-play-mpv (file)
+  "Play using mpv."
+  (interactive (list (movie-current-file)))
+  (with-current-buffer (get-buffer-create "*mplayer*")
+    (call-process "/home/larsi/src/mpv/build/mpv" nil (current-buffer) nil
+		  "--audio-device=alsa/plughw:CARD=Device,DEV=0"
+		  "--vo=gpu"
+		  "--hwdec=vdpau"
+		  ;;"--tone-mapping=clip" "--tone-mapping-param=1"
+		  "--fullscreen"
+		  file)))
 
 (defun movie-play-best-file (file)
   "Play the longest file in the directory/file under point."
