@@ -33,13 +33,12 @@
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
-(defvar movie-dvdnav-p nil)
 
 (defvar movie-files "." ;"\\.\\(mpg\\|avi\\|wmv\\|ogm\\|rm\\|mpeg\\)$"
   "Regexp to match movie files.")
 
 (defvar movie-player
-  '("/home/larsi/src/mpv/build/mpv"
+  '("/usr/src/mpv/build/mpv"
     "--audio-device=alsa/plughw:CARD=Device,DEV=0"
     "--vo=gpu"
     "--hwdec=vdpau"
@@ -58,11 +57,8 @@
 (defvar movie-crop '("-vf" "crop=700:420")
   "Parameters to crop a 4:3 aspect ratio program.")
 
-(defvar movie-deinterlace-switch "yadif=3"
-  "-vf switch t opass to mplayer to deinterlace films.
-Valid values include yadif=3 (CPU intensive), pp=lb (results in
-double images when things are moving fast) and pp=ci (use half
-the lines in the image and lots of stairing).")
+(defvar movie-deinterlace-switch "--deinterlace=yes"
+  "-Switch to pass to mpv to deinterlace films.")
 
 (defvar movie-high-volume
   '("-af" "volume=15:1")
@@ -554,9 +550,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-prefixed-action ()
   (interactive)
-  (let ((options '("-vf" "screenshot"))
+  (let ((options nil)
 	(command nil)
-	(movie-dvdnav-p nil)
 	(player (copy-list movie-player)))
     (while (let ((char (read-char "")))
 	     (cond
@@ -567,23 +562,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (setq options
 		     (movie-add-vf options "crop=700:300")))
 	      ((eq char ?i)
-	       (setq options (movie-add-vf options movie-deinterlace-switch)))
+	       (setq options (append options (list movie-deinterlace-switch))))
 	      ((eq char ?I)
-	       (setq options (movie-remove-vf options movie-deinterlace-switch)))
-	      ((eq char ?x)
-	       (setq options (append options (list "-vo" "xv"))))
-	      ((eq char ?4)
-	       (setq options (append options (list "-aspect" "4:3"))))
-	      ((eq char ?a)
-	       (setq options (append options (list "-monitoraspect=4:3"))))
-	      ((eq char ?d)
-	       (dolist (elem '("-framedrop" "-hardframedrop" "-nocorrect-pts"))
-		 (setq player (delete elem player)))
-	       t)
-	      ((eq char ?9)
-	       (setq options (append options (list "-aspect" "16:9"))))
-	      ((eq char ?n)
-	       (setq movie-dvdnav-p t))
+	       (setq options (delete movie-deinterlace-switch options)))
 	      (t
 	       (setq command
 		     (lookup-key movie-mode-map (format "%c" char)))
@@ -637,7 +618,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(setq movie-player (append movie-player
 				   (list "-sub" sub)))))
     (if (movie-interlaced-p file)
-	(movie-play-1 (append (movie-add-vf movie-player movie-deinterlace-switch)
+	(movie-play-1 (append movie-player (list movie-deinterlace-switch)
 			      (list file)))
       (movie-play-1 (append movie-player (list file))))))
 
@@ -689,6 +670,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-start-mpv (command &optional wait)
   (interactive (list (append movie-player
 			     (list (read-file-name "File: ")))))
+  (setq movie-rotate-audio 0)
   (with-current-buffer (get-buffer-create "*mplayer*")
     (when (file-exists-p "/tmp/mpv-socket")
       (delete-file "/tmp/mpv-socket"))
@@ -713,16 +695,22 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
      (get-buffer-process (current-buffer))
      (format "%s\n" (json-encode command)))))
 
-(defvar movie-anim-number 0)
-
 (defun movie-record-gif ()
   "Start/stop recording an animation."
   (interactive)
   (movie-send-mpv-command
    `((command . ["screenshot-template"
-		 ,(format "anim%s-%%n" (incf movie-anim-number))])))
+		 ,(format "%s-%%n" (movie-find-anim-name))])))
   (movie-send-mpv-command
    `((command . ["screenshot" "video" "each-frame"]))))
+
+(defun movie-find-anim-name ()
+  (let ((num 1)
+	result)
+    (while (directory-files default-directory
+			    nil (setq result (format "anim%02d" num)))
+      (incf num))
+    result))
 
 (defvar movie-audio-devices
   '("alsa/plughw:CARD=Device,DEV=0"	; Headphones
@@ -1034,7 +1022,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-play-total-dvd (&optional number)
   "Play the DVD."
   (interactive "P")
-  (movie-play (format "dvdnav://%s" (or number ""))))
+  (movie-play (format "dvd://%s" (or number ""))))
 
 (defun movie-play-vlc-dvd (number)
   "Play the DVD."
