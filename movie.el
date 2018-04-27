@@ -729,6 +729,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 			    (length movie-audio-devices)))]))))
   
 (defun movie-play-1 (player)
+  (setq movie-current-audio-device 0)
   (let ((skip (movie-find-position
 	       (or movie-file-id
 		   (car (last player))))))
