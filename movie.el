@@ -704,8 +704,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
    `((command . ["screenshot-template"
 		 ,(if movie-anim-state
 		      "mpv-shot%n"
-		    (format "%s-%%n" (movie-find-anim-name))]))))
-  (setq movie-anim-state nil)
+		    (format "%s-%%n" (movie-find-anim-name)))])))
+  (setq movie-anim-state (not movie-anim-state))
   (movie-send-mpv-command
    `((command . ["screenshot" "video" "each-frame"]))))
 
