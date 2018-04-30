@@ -695,12 +695,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
      (get-buffer-process (current-buffer))
      (format "%s\n" (json-encode command)))))
 
+(defun movie-anim-state nil)
+
 (defun movie-record-gif ()
   "Start/stop recording an animation."
   (interactive)
   (movie-send-mpv-command
    `((command . ["screenshot-template"
-		 ,(format "%s-%%n" (movie-find-anim-name))])))
+		 ,(if movie-anim-state
+		      "mpv-shot%n"
+		    (format "%s-%%n" (movie-find-anim-name))]))))
+  (setq movie-anim-state nil)
   (movie-send-mpv-command
    `((command . ["screenshot" "video" "each-frame"]))))
 
@@ -729,7 +734,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 			    (length movie-audio-devices)))]))))
   
 (defun movie-play-1 (player)
-  (setq movie-current-audio-device 0)
+  (setq movie-current-audio-device 0
+	movie-anim-state nil)
   (let ((skip (movie-find-position
 	       (or movie-file-id
 		   (car (last player))))))
