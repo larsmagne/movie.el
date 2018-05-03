@@ -709,10 +709,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (movie-send-mpv-command
    `((command . ["screenshot" "video" "each-frame"]))))
 
+(defvar movie-recording-directory "/tmp")
+
 (defun movie-find-anim-name ()
   (let ((num 1)
 	result)
-    (while (directory-files default-directory
+    (while (directory-files movie-recording-directory
 			    nil (setq result (format "anim%02d" num)))
       (incf num))
     result))
@@ -771,7 +773,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(buffer-disable-undo)
 	(erase-buffer)
 	;; mplayer will store the screenshots in the current directory.
-	(setq default-directory dir)
+	(setq default-directory dir
+	      movie-recording-directory dir)
 	(movie-start-mpv player t)
 	(movie-update-mplayer-position (car (last player)))
 	(movie-copy-images-higher-than highest dir))
