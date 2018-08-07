@@ -30,6 +30,7 @@
 (require 'imdb)
 (require 'mkv)
 (require 'subr-x)
+(require 'touchgrid)
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
@@ -73,6 +74,9 @@
 (defvar movie-file-id nil)
 
 (defvar movie-deletion-process nil)
+
+(defvar movie-after-play-callback nil
+  "Function called after MPV playback has ended.")
 
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
@@ -687,13 +691,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (movie-send-mpv-command '((command . ["observe_property" 1 "time-pos"])))
       (when wait
 	(while (process-live-p mpv)
-	  (sleep-for 0.1))))))
+	  (sleep-for 0.1))
+	(when movie-after-play-callback
+	  (with-current-buffer (get-buffer-create "*mpv*")
+	    (funcall movie-after-play-callback)))))))
 
 (defun movie-send-mpv-command (command)
   (with-current-buffer "*mpv*"
-    (process-send-string
-     (get-buffer-process (current-buffer))
-     (format "%s\n" (json-encode command)))))
+    (when (get-buffer-process (current-buffer))
+      (process-send-string
+       (get-buffer-process (current-buffer))
+       (format "%s\n" (json-encode command))))))
 
 (defun movie-anim-state nil)
 
@@ -1544,7 +1552,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-rotate-screen ()
   "Change screen rotation."
   (interactive)
-  (call-process "xrandr" nil nil nil "--output" "eDP-1-1" "--rotate"
+  (call-process "xrandr" nil nil nil "--output" "eDP-1" "--rotate"
 		(if movie-rotation
 		    "normal"
 		  "inverted"))
