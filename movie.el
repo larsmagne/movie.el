@@ -43,6 +43,7 @@
     "--audio-device=alsa/plughw:CARD=Device,DEV=0"
     "--vo=gpu"
     "--hwdec=vdpau"
+    ;;"--vf=vdpaupp=denoise=1"
     ;;"--tone-mapping=clip" "--tone-mapping-param=1"
     "--input-ipc-server=/tmp/mpv-socket"
     "--fullscreen"
@@ -221,6 +222,7 @@ Otherwise, goto the start of the buffer."
 			   (cdr (assoc 'tracks stats))))
 	(push `(:file ,file
 		      :time ,(nth 5 atts)
+		      :recorded ,(cdr (assoc "Recorded" (movie-get-stats file)))
 		      :size ,(nth 7 atts)
 		      :directoryp ,(nth 0 atts)
 		      :year ,(let ((year (cdr (assoc "Year"
@@ -390,8 +392,11 @@ Otherwise, goto the start of the buffer."
 		      (movie-sortable-name (plist-get f2 :file)))))
 	  ((eq order 'chronological)
 	   (lambda (f1 f2)
-	     (time-less-p (plist-get f1 :time)
-			  (plist-get f2 :time))))
+	     (if (plist-get f1 :recorded)
+		 (string< (plist-get f1 :recorded)
+			  (plist-get f2 :recorded))
+	       (time-less-p (plist-get f1 :time)
+			    (plist-get f2 :time)))))
 	  ((eq order 'year)
 	   (lambda (f1 f2)
 	     (< (or (plist-get f1 :year) 0)
@@ -442,6 +447,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "l" 'movie-last-seen)
     (define-key map "-" 'movie-collapse)
     (define-key map "i" 'movie-mark-as-seen)
+    (define-key map "A" 'movie-add-stats-query)
     (define-key map "a" 'movie-add-stats)
     (define-key map "u" 'movie-undo-delete)
     (define-key map "U" 'movie-update-stats-file)
@@ -885,15 +891,25 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   "Add a stats file to the directory under point."
   (interactive (list (movie-current-file) current-prefix-arg))
   (unless (file-directory-p dir)
-    (error "Must be called on a directory"))
+    (setq dir (directory-file-name (file-name-directory dir))))
   (movie-make-stats-file dir no-director)
+  (message "Made a stats file for %s" dir))
+
+(defun movie-add-stats-query (dir title)
+  "Add a stats file to the directory under point."
+  (interactive (list (movie-current-file)
+		     (read-string "Title: " (file-name-nondirectory
+					     (movie-current-file)))))
+  (unless (file-directory-p dir)
+    (setq dir (directory-file-name (file-name-directory dir))))
+  (movie-make-stats-file dir nil title)
   (message "Made a stats file for %s" dir))
 
 (defun movie-current-file ()
   (save-excursion
     (beginning-of-line)
-    (concat default-directory "/"
-	    (get-text-property (point) 'file-name))))
+    (expand-file-name (get-text-property (point) 'file-name)
+		      default-directory)))
 
 (defun movie-rescan (&optional order)
   "Update the current buffer."
@@ -946,7 +962,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		  (downcase (or (movie-prefix (file-name-nondirectory file))
 				""))
 		  (downcase prefix)))
-	(rename-file file dir)))))
+	(rename-file file (concat dir "/"))))))
 
 (defun movie-prefix (file)
   (let ((prefix ""))
@@ -1196,12 +1212,14 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	 (goto-char (point-min))
 	 (re-search-forward "^Scan type.*Interlace" nil t))))
 
-(defun movie-make-stats-file (directory &optional no-directory)
+(defun movie-make-stats-file (directory &optional no-directory title)
   "Create a stats file for DIRECTORY."
   (interactive "dDirectory: \nP")
   (with-temp-file (expand-file-name "stats" directory)
-    (let* ((title (replace-regexp-in-string " +([0-9]+)$" ""
-					    (file-name-nondirectory directory)))
+    (let* ((title (replace-regexp-in-string
+		   " +([0-9]+)$" ""
+		   (or title
+		       (file-name-nondirectory directory))))
 	   (imdb (if (not no-directory)
 		     (imdb-query title)))
 	   (files (directory-files directory t "mkv$")))
