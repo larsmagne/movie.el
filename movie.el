@@ -685,6 +685,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (when (file-exists-p "/tmp/mpv-socket")
       (delete-file "/tmp/mpv-socket"))
     (let ((mpv (apply 'start-process "mpv" (current-buffer) command))
+	  (count 0)
 	  socket)
       (while (not (file-exists-p "/tmp/mpv-socket"))
 	(sleep-for 0.1))
@@ -697,6 +698,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (movie-send-mpv-command '((command . ["observe_property" 1 "time-pos"])))
       (when wait
 	(while (process-live-p mpv)
+	  ;; Once a second, get the bitrate.
+	  (when (zerop (mod (incf count) 10))
+	    (movie-send-mpv-command
+	     '((command . ["get_property" "video-bitrate"])
+	       (request_id . "rate"))))
 	  (sleep-for 0.1))
 	(when movie-after-play-callback
 	  (with-current-buffer (get-buffer-create "*mpv*")
