@@ -1173,14 +1173,25 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (delete-region (line-beginning-position)
 		     (line-beginning-position 2)))
     (goto-char (point-min))
-    (loop while (not (eobp))
-	  for (format code resolution note) =
-	  (split-string (buffer-substring (point) (line-end-position)))
-	  if (string-match "(best)" (or note ""))
-	  return format
-	  collect format into formats
-	  finally (return (car (last formats)))
-	  do (forward-line 1))))
+    (caar
+     (sort
+      (nreverse
+       (loop while (not (eobp))
+	     for (format code resolution note) =
+	     (split-string (buffer-substring (point) (line-end-position)))
+	     collect (cons format resolution)
+	     do (forward-line 1)))
+      'movie-resolution-predicate))))
+
+(defun movie-resolution-predicate (e1 e2)
+  (> (movie-resolution-predicate-1 e1)
+     (movie-resolution-predicate-1 e2)))
+
+(defun movie-resolution-predicate-1 (elem)
+  (let ((x (string-to-number (car (split-string (cdr elem) "x")))))
+    (if (> x 3840)
+	-1
+      x)))
 
 (defun movie-play-youtube (url &optional aspect)
   (message "Got youtube url %s" url)
