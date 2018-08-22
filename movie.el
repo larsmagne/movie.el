@@ -1223,11 +1223,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
        (string-to-number (match-string 1 string))))
 
 (defun movie-interlaced-p (file)
-  (and (not (member (system-name) '("mouse" "sandy")))
-       (with-temp-buffer
-	 (call-process "mediainfo" nil t nil file)
-	 (goto-char (point-min))
-	 (re-search-forward "^Scan type.*Interlace" nil t))))
+  (let ((stats (movie-get-stats (file-name-directory file))))
+    (if stats
+	(getf (cdr (assoc (file-name-nondirectory file)
+			  (cdr
+			   (assq 'tracks stats))))
+	      :interlaced)
+      (and (not (member (system-name) '("mouse" "sandy")))
+	   (with-temp-buffer
+	     (call-process "mediainfo" nil t nil file)
+	     (goto-char (point-min))
+	     (re-search-forward "^Scan type.*Interlace" nil t))))))
 
 (defun movie-make-stats-file (directory &optional no-directory title)
   "Create a stats file for DIRECTORY."
