@@ -185,6 +185,11 @@ Otherwise, goto the start of the buffer."
   (interactive)
   (movie-browse default-directory 'year movie-limit))
 
+(defun movie-list-by-rip-time ()
+  "List the movies by year."
+  (interactive)
+  (movie-browse default-directory 'rip-time movie-limit))
+
 (defun movie-list-by-country ()
   "List the movies by year."
   (interactive)
@@ -401,6 +406,10 @@ Otherwise, goto the start of the buffer."
 	   (lambda (f1 f2)
 	     (< (or (plist-get f1 :year) 0)
 		(or (plist-get f2 :year) 0))))
+	  ((eq order 'rip-time)
+	   (lambda (f1 f2)
+	     (< (movie-rip-time f1)
+		(movie-rip-time f2))))
 	  ((eq order 'director)
 	   (lambda (f1 f2)
 	     (string< (or (plist-get f1 :director) 0)
@@ -417,6 +426,13 @@ Otherwise, goto the start of the buffer."
 			  (time-less-p (or (plist-get f1 :year) 0)
 				       (or (plist-get f2 :year) 0))))))
     (sort files predicate)))
+
+(defun movie-rip-time (elem)
+  (let ((files (directory-files (getf elem :file) t "[.]mkv$")))
+    (if (not files)
+	0
+      (float-time (file-attribute-modification-time
+		   (file-attributes (car files)))))))
 
 (defvar movie-mode-map 
   (let ((map (make-sparse-keymap)))
@@ -459,6 +475,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "'" 'scroll-up-command)
     (define-key map "/" 'movie-limit)
     (define-key map "m" 'movie-list-parts)
+    (define-key map "O" 'movie-list-by-rip-time)
     (define-key map "Y" 'movie-list-by-year)
     (define-key map "L" 'movie-list-by-director)
     map))
@@ -626,7 +643,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (dolist (sub subs)
       (when (file-exists-p sub)
 	(setq movie-player (append movie-player
-				   (list "-sub" sub)))))
+				   (list "--sub-file" sub)))))
     (if (movie-interlaced-p file)
 	(movie-play-1 (append movie-player (list movie-deinterlace-switch)
 			      (list file)))
@@ -1535,7 +1552,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (message "%s" png)
 	  (delete-file png))))))
 
-(defvar movie-prime-directory "/media/sdc1")
+(defvar movie-prime-directory "/media/sdd1")
 
 (defun movie-concatenate-prime ()
   (interactive)
@@ -1614,6 +1631,71 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 					file new-dir)))
 	    do (make-directory new-dir)
 	    (rename-file file new-dir)))))
+
+(defun movie-goto-last-series ()
+  "Go to the /dvd last series directory."
+  (interactive)
+  (let ((mkvs (loop for path in
+		    (movie-directory-files-recursively "/dvd" "[.]mkv\\'")
+		    collect (list
+			     (file-name-nondirectory path)
+			     path)))
+	found)
+    (with-temp-buffer
+      (insert-file-contents movie-positions-file)
+      (goto-char (point-max))
+      (while (and (not (bobp))
+		  (not found))
+	(forward-line -1)
+	(let* ((current (cadr
+			 (split-string
+			  (buffer-substring (point) (line-end-position)))))
+	       (dir (cadr (assoc current mkvs))))
+	  (when (and dir
+		     (movie-tv-series-p (file-name-directory dir)))
+	    (setq found dir)))))
+    (if (not found)
+	(error "Can't find a tv series")
+      (movie-find-file (file-name-directory found)))))
+
+(defun movie-tv-series-p (dir)
+  (let ((tracks (cdr (assq 'tracks (movie-get-stats dir)))))
+    (and (> (length tracks) 5)
+	 (> (loop for track in tracks
+		  when (> (getf (cdr track) :length) (* 20 60))
+		  sum 1)
+	    5))))
+
+(defun movie-directory-files-recursively (dir regexp &optional include-directories)
+  "Return list of all files under DIR that have file names matching REGEXP.
+This function works recursively.  Files are returned in \"depth first\"
+order, and files from each directory are sorted in alphabetical order.
+Each file name appears in the returned list in its absolute form.
+Optional argument INCLUDE-DIRECTORIES non-nil means also include in the
+output directories whose names match REGEXP."
+  (let ((result nil)
+	(files nil)
+	;; When DIR is "/", remote file names like "/method:" could
+	;; also be offered.  We shall suppress them.
+	(tramp-mode (and tramp-mode (file-remote-p (expand-file-name dir)))))
+    (dolist (file (and (file-readable-p dir)
+		       (sort (file-name-all-completions "" dir)
+			     'string<)))
+      (unless (member file '("./" "../"))
+	(if (directory-name-p file)
+	    (let* ((leaf (substring file 0 (1- (length file))))
+		   (full-file (expand-file-name leaf dir)))
+	      ;; Don't follow symlinks to other directories.
+	      (unless (file-symlink-p full-file)
+		(setq result
+		      (nconc result (movie-directory-files-recursively
+				     full-file regexp include-directories))))
+	      (when (and include-directories
+			 (string-match regexp leaf))
+		(setq result (nconc result (list full-file)))))
+	  (when (string-match regexp file)
+	    (push (expand-file-name file dir) files)))))
+    (nconc result (nreverse files))))
 
 (provide 'movie)
 
