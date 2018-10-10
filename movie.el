@@ -738,7 +738,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   "Start/stop recording an animation."
   (interactive)
   (movie-send-mpv-command
-   `((command . ["screenshot-template"
+   `((command . ["set"
+		 "screenshot-template"
 		 ,(if movie-anim-state
 		      "mpv-shot%n"
 		    (format "%s-%%n" (movie-find-anim-name)))])))
