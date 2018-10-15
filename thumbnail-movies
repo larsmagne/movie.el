@@ -13,7 +13,8 @@ sub Wanted {
 	    ! -e "$file.png" &&
 	    $mtime + 60 < time()) {
 	    print "$file\n";
-	    system("/usr/src/mplayer/mplayer", "-vo", "png",
+	    system("/usr/bin/mplayer", "-vo", "png",
+		   "-nosound",
 		   "-sstep", "10",
 		   "-frames", "3",
 		   "$file");
