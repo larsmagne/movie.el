@@ -451,7 +451,6 @@ Otherwise, goto the start of the buffer."
     (define-key map "F" 'movie-play-current-vob)
     (define-key map "T" 'movie-thumbnails)
     (define-key map "q" 'bury-buffer)
-    (define-key map "e" 'movie-eject)
     (define-key map "k" 'movie-browse)
     (define-key map "c" 'movie-play-cropped)
     (define-key map "x" 'movie-prefixed-action)
@@ -478,6 +477,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "O" 'movie-list-by-rip-time)
     (define-key map "Y" 'movie-list-by-year)
     (define-key map "L" 'movie-list-by-director)
+    (define-key map "e" 'movie-goto-last-series)
     map))
 
 (defvar movie-mode nil
