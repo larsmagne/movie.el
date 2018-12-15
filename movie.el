@@ -1648,7 +1648,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (while (and (not (bobp))
 		  (not found))
 	(forward-line -1)
-	(let* ((current (cadr
+	(let* ((current (caddr
 			 (split-string
 			  (buffer-substring (point) (line-end-position)))))
 	       (dir (cadr (assoc current mkvs))))
