@@ -688,9 +688,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(when (search-backward
 	       (concat " " (file-name-nondirectory file) "\n") nil t)
 	  (beginning-of-line)
-	  (and (looking-at "[0-9]+")
+	  (and (looking-at "[^ \n]+ \\([0-9]+\\)")
 	       ;; Skip backwards two seconds to avoid missing a second.
-	       (format "%d" (max (- (string-to-number (match-string 0))
+	       (format "%d" (max (- (string-to-number (match-string 1))
 				    (if no-skip 0 2))
 				 0))))))))
 
@@ -832,7 +832,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	     (coding-system-for-read 'utf-8)
 	     (coding-system-for-write 'utf-8))
 	(with-temp-buffer
-	  (insert (format "%s %s\n" position (file-name-nondirectory file)))
+	  (insert (format "%s %s %s\n"
+			  (format-time-string "%FT%T")
+			  position (file-name-nondirectory file)))
 	  (write-region (point-min) (point-max) movie-positions-file
 			'append 'nomessage))))))
 
@@ -1488,7 +1490,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		   nil t)
 		  (< (length results) 5))
 	(beginning-of-line)
-	(when (looking-at "\\([0-9.]+\\) \\(.*\\)")
+	(when (looking-at "[^ \n]+ \\([0-9.]+\\) \\(.*\\)")
 	  (let ((length (string-to-number (match-string 1)))
 		(show (match-string 2)))
 	    (when (and (not (member show results))
