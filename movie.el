@@ -478,6 +478,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "Y" 'movie-list-by-year)
     (define-key map "L" 'movie-list-by-director)
     (define-key map "e" 'movie-goto-last-series)
+    (define-key map "*" 'movie-mark)
     map))
 
 (defvar movie-mode nil
@@ -500,6 +501,7 @@ Otherwise, goto the start of the buffer."
   (use-local-map movie-mode-map)
   (set (make-local-variable 'movie-order) nil)
   (set (make-local-variable 'movie-limit) nil)
+  (setq-local movie-marks nil)
   (setq mode-line-buffer-identification
 	'("Movie: " default-directory))
   (setq truncate-lines t)
@@ -1697,6 +1699,29 @@ output directories whose names match REGEXP."
 	  (when (string-match regexp file)
 	    (push (expand-file-name file dir) files)))))
     (nconc result (nreverse files))))
+
+(defun movie-mark (movie)
+  "Toggle the mark on the current movie."
+  (interactive (list (movie-current-file)))
+  (let ((mark ?*))
+    (if (member movie movie-marks)
+	(setq movie-marks (delete movie movie-marks)
+	      mark ? )
+      (push movie movie-marks))
+    (save-excursion
+      (beginning-of-line)
+      (forward-char 1)
+      (delete-forward-char 1)
+      (insert mark))
+    (forward-line 1)))
+
+(defun movie-copy-marked (dir)
+  "Copy the marked movies to DIR."
+  (interactive "DCopy to directory: ")
+  (dolist (movie movie-marks)
+    (message "Copying %s..." movie)
+    (call-process "rsync" nil nil nil "-av" movie dir))
+  (message "Done"))
 
 (provide 'movie)
 
