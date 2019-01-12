@@ -963,12 +963,23 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (if (eq movie-order 'alphabetical)
 	(setq movie-order 'chronological)
       (setq movie-order 'alphabetical))
-    (movie-rescan movie-order)
+    (goto-char (point-min))
+    (sort-subr nil 'forward-line 'end-of-line nil nil
+	       (lambda (l1 l2)
+		 (movie-compare-lines
+		  movie-order
+		  (get-text-property (car l1) 'movie-data)
+		  (get-text-property (car l2) 'movie-data))))
     (if (not current)
 	(goto-char (point-max))
       (goto-char (point-min))
       (search-forward (file-name-nondirectory current) nil t)
       (beginning-of-line))))
+
+(defun movie-compare-lines (order d1 d2)
+  (if (eq order 'alphabetical)
+      (string< (getf d1 :file) (getf d2 :file))
+    (time-less-p (getf d1 :time) (getf d2 :time))))
 
 (defun movie-rename (to)
   "Rename the current movie."
