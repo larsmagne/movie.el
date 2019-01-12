@@ -129,9 +129,13 @@ Otherwise, goto the start of the buffer."
 
 (defun movie-goto-movie (movie)
   (goto-char (point-min))
-  (while (and (not (eobp))
-	      (not (equal movie (get-text-property (point) 'file-name))))
-    (forward-line 1)))
+  (let (file)
+    (while (and (not (eobp))
+		(or (not (setq file (getf (get-text-property
+					   (point) 'movie-data)
+					  :file)))
+		    (not (equal movie (file-name-nondirectory file)))))
+      (forward-line 1))))
 
 (defun movie-get-stats (directory)
   (let ((file (expand-file-name "stats" directory))
@@ -360,9 +364,8 @@ Otherwise, goto the start of the buffer."
 	    (insert-image (create-image "~/src/movie.el/empty.png" 'imagemagick nil
 					:scale movie-image-scale)))))
 	(beginning-of-line)
-	(put-text-property
-	 (point) (1+ (point))
-	 'file-name (file-name-nondirectory (plist-get file :file)))))))
+	(put-text-property (point) (1+ (point)) 'movie-data file)))))
+			   
 
 (defun movie-format-length (seconds)
   (if (< seconds (* 60 60))
@@ -936,8 +939,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-current-file ()
   (save-excursion
     (beginning-of-line)
-    (expand-file-name (get-text-property (point) 'file-name)
-		      default-directory)))
+    (getf (get-text-property (point) 'movie-data) :file)))
 
 (defun movie-rescan (&optional order)
   "Update the current buffer."
