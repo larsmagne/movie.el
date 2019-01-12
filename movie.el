@@ -462,6 +462,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "t" 'movie-find-torrent)
     (define-key map "s" 'movie-toggle-sort)
     (define-key map "r" 'movie-rename)
+    (define-key map "R" 'movie-reload)
     (define-key map "l" 'movie-last-seen)
     (define-key map "-" 'movie-collapse)
     (define-key map "i" 'movie-mark-as-seen)
@@ -1735,6 +1736,11 @@ output directories whose names match REGEXP."
     (message "Copying %s..." movie)
     (call-process "rsync" nil nil nil "-av" movie dir))
   (message "Done"))
+
+(defun movie-reload ()
+  "Reload movie.el."
+  (load "~/src/movie.el/movie.el")
+  (message "Reloaded"))
 
 (provide 'movie)
 
