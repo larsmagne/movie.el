@@ -978,7 +978,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-compare-lines (order d1 d2)
   (if (eq order 'alphabetical)
-      (string< (getf d1 :file) (getf d2 :file))
+      (string< (downcase (getf d1 :file)) (downcase (getf d2 :file)))
     (time-less-p (getf d1 :time) (getf d2 :time))))
 
 (defun movie-rename (to)
