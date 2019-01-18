@@ -470,7 +470,6 @@ Otherwise, goto the start of the buffer."
     (define-key map "a" 'movie-add-stats)
     (define-key map "u" 'movie-undo-delete)
     (define-key map "U" 'movie-update-stats-file)
-    (define-key map "p" 'movie-popup-menu)
     (define-key map "P" 'movie-rotate-screen)
     (define-key map "." 'end-of-buffer)
     (define-key map "," 'beginning-of-buffer)
@@ -1605,23 +1604,6 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	   output
 	   files)))
 
-(defun movie-popup-menu ()
-  "Allow some touch actions."
-  (interactive)
-  (let* ((last-nonmenu-event '(t))
-	 (action
-	  (read-multiple-choice
-	   "Choose action"
-	   '((?d "Delete" movie-delete-file)
-	     (?u "Undelete" movie-undo-delete)
-	     (?p "Play" movie-play-best-file)
-	     (?r "Rotate" movie-rotate-screen)
-	     (?c "Cancel")))))
-    (message "")
-    (when (and action
-	       (caddr action))
-      (call-interactively (caddr action)))))   
-
 (defvar movie-rotation nil)
 
 (defun movie-rotate-screen ()
@@ -1647,7 +1629,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		      (y-or-n-p (format "Rename %s to %s?"
 					file new-dir)))
 	    do (make-directory new-dir)
-	    (rename-file file new-dir)))))
+	    (rename-file file (expand-file-name (file-name-nondirectory file)
+						new-dir))))))
 
 (defun movie-goto-last-series ()
   "Go to the /dvd last series directory."
