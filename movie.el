@@ -307,7 +307,18 @@ Otherwise, goto the start of the buffer."
 			    string)))))
       (insert
        (format
-	" %s%s\n"
+	" %5s %s%s\n"
+	(if (plist-get file :directoryp)
+	    (if dvdp
+		""
+	      (format "%s"
+		      (round (/ (or (car dir-data) -1) 1024 1024))))
+	  (format
+	   " %s"
+	   (if (plist-get file :length)
+	       (movie-format-length (plist-get file :length))
+	     (round
+	      (/ (or (plist-get file :size) -1) 1024 1024)))))
 	(if (and (not (plist-get file :seen))
 		 (not (plist-get file :mostly-seen)))
 	    (file-name-nondirectory (plist-get file :file))
