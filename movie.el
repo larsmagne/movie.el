@@ -587,6 +587,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(player (copy-list movie-player)))
     (while (let ((char (read-char "")))
 	     (cond
+	      ((eq char ?n)
+	       (setq options
+		     (movie-add-vf options "dctdnoiz=15")))
 	      ((eq char ?c)
 	       (setq options
 		     (movie-add-vf options "crop=700:420")))
@@ -608,9 +611,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-add-vf (options vf)
   (setq options (copy-list options))
-  (let ((old (member "-vf" options)))
+  (let ((old (member "--vf" options)))
     (if (not old)
-	(append options (list "-vf" vf))
+	(append options (list "--vf" vf))
       (setcar (cdr old)
 	      (concat vf "," (cadr old)))
       options)))
@@ -815,6 +818,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
+	(insert (format "%s\n" player))
 	;; mplayer will store the screenshots in the current directory.
 	(setq default-directory dir
 	      movie-recording-directory dir)
@@ -1722,6 +1726,7 @@ output directories whose names match REGEXP."
 
 (defun movie-reload ()
   "Reload movie.el."
+  (interactive)
   (load "~/src/movie.el/movie.el")
   (message "Reloaded"))
 
