@@ -296,6 +296,8 @@ Otherwise, goto the start of the buffer."
 	  (dvdp (string-match "^/dvd/" (plist-get file :file))))
       (when (eq order 'year)
 	(insert (format "%04d " (or (plist-get file :year) 9999))))
+      (when (eq order 'rip-time)
+	(insert (format-time-string " %Y-%m-%d" (movie-rip-time file))))
       (when (eq order 'country)
 	(insert (format "%04d %02s " (or (plist-get file :year) 9999)
 			(or (plist-get file :country) ""))))
@@ -320,8 +322,8 @@ Otherwise, goto the start of the buffer."
 	       (movie-format-length (plist-get file :length))
 	     (round
 	      (/ (or (plist-get file :size) -1) 1024 1024)))))
-	(if (equal system-name "sandy")
-	    (propertize " " 'display `(space :align-to (320)))
+	(if (member system-name '("sandy" "quimbies"))
+	    (propertize " " 'display `(space :align-to (600)))
 	  "")
 	(if (and (not (plist-get file :seen))
 		 (not (plist-get file :mostly-seen)))
@@ -450,7 +452,12 @@ Otherwise, goto the start of the buffer."
     (if (not files)
 	0
       (float-time (file-attribute-modification-time
-		   (file-attributes (car files)))))))
+		   (file-attributes
+		    (car (cl-sort files #'<
+				  :key (lambda (f)
+					 (float-time
+					  (file-attribute-modification-time
+					   (file-attributes f))))))))))))
 
 (defvar movie-mode-map 
   (let ((map (make-sparse-keymap)))
@@ -1440,18 +1447,42 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (when (file-symlink-p file)
       (delete-file file)))
   (dolist (movie (movie-get-files "/dvd"))
-    (when (and (not (plist-get movie :seen))
-	       (not (plist-get movie :mostly-seen))
-	       ;;(member (plist-get movie :country) '("" "fr" "us" "gb" "ca"))
-	       (plist-get movie :genre)
-	       (not (string-match "Star Trek" (plist-get movie :file)))
-	       (not (string-match "Allen" (plist-get movie :director)))
-	       (not (string-match "tv" (plist-get movie :genre)))
-	       (not (string-match "comics" (plist-get movie :genre)))
-	       )
-      (let ((file (plist-get movie :file)))
-	(make-symbolic-link file (expand-file-name (file-name-nondirectory file)
-						   "/tv/unseen"))))))
+    (let ((genre (split-string (or (plist-get movie :genre) "") ",")))
+      (when (and (not (plist-get movie :seen))
+		 (plist-get movie :genre)
+		 (plist-get movie :year)
+		 (not (plist-get movie :mostly-seen))
+		 ;;(member (plist-get movie :country) '("" "fr" "us" "gb" "ca"))
+		 (plist-get movie :genre)
+		 (not (string-match "Star Trek" (plist-get movie :file)))
+		 (not (string-match "Allen" (plist-get movie :director)))
+		 (not (member "tv" genre))
+		 (not (member "best" genre))
+		 (not (member "Amazon" genre))
+		 (not (member "comics" genre))
+		 )
+	(let ((file (plist-get movie :file)))
+	  (make-symbolic-link
+	   file (expand-file-name (file-name-nondirectory file)
+				  "/tv/unseen")))))))
+
+(defun movie-split-unseen (size)
+  "Move some files from /tv/unseen until we have SIZE GB."
+  (dolist (file (directory-files "/tv/other-unseen" t))
+    (when (file-symlink-p file)
+      (delete-file file)))
+  (let ((films
+	 (sort
+	  (loop for film in (directory-files "/tv/unseen" t)
+		unless (string-match "^[.]" (file-name-nondirectory film))
+		collect (cons (movie-film-size film) film))
+	  (lambda (f1 f2)
+	    (< (random) (random))))))
+    (loop for (s . link) in films
+	  do (decf size (/ (float s) 1000 1000 1000))
+	  while (plusp size)
+	  do (rename-file link (expand-file-name (file-name-nondirectory link)
+						 "/tv/other-unseen")))))
 
 (defun movie-move-small-unseen ()
   "Create a directory of the smallest films from the unseen directory."
@@ -1742,6 +1773,18 @@ output directories whose names match REGEXP."
   (interactive)
   (load "~/src/movie.el/movie.el")
   (message "Reloaded"))
+
+(defun movie-add-genre (dir)
+  (interactive (list (movie-current-file)))
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "stats" dir))
+    (if (re-search-forward "^Genre: ")
+	(progn
+	  (end-of-line)
+	  (insert ",best"))
+      (re-search-forward "^$")
+      (insert "Genre: best\n"))
+    (write-region (point-min) (point-max) (expand-file-name "stats" dir))))
 
 (provide 'movie)
 
