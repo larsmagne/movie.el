@@ -166,7 +166,8 @@ Otherwise, goto the start of the buffer."
    (list
     (completing-read "Match: " (append movie-genres
 				       (list "nostats" "unseen" "all"
-					     "mostly-seen")))
+					     "mostly-seen"
+					     "movies")))
     current-prefix-arg))
   (movie-browse
    default-directory movie-order
@@ -179,6 +180,14 @@ Otherwise, goto the start of the buffer."
     ((equal match "unseen")
      (lambda (stats)
        (null (assoc "Seen" stats))))
+    ((equal match "movies")
+     (lambda (stats)
+       (let ((genres (cdr (assoc "Genre" stats))))
+	 (and genres
+	      (null (assoc "Seen" stats))
+	      (assoc "Year" stats)
+	      (not (member "tv" (split-string genres ",")))
+	      (not (member "best" (split-string genres ",")))))))
     ((equal match "mostly-seen")
      (lambda (stats)
        (equal (cdr (assoc "Status" stats)) "mostly-seen")))
