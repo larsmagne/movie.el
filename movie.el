@@ -79,6 +79,12 @@
 (defvar movie-after-play-callback nil
   "Function called after MPV playback has ended.")
 
+(defun movie-holiday ()
+  "Start viewing movies when not at home."
+  (interactive)
+  (setq movie-positions-file "~/.emacs.d/mplayer.positions")
+  (movie-browse "/dvd"))
+
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
   (interactive "DDirectory: ")
