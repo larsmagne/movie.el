@@ -299,6 +299,13 @@ Otherwise, goto the start of the buffer."
     (car (sort files (lambda (f1 f2)
 		       (> (car f1) (car f2)))))))
 
+(defun movie--image-type ()
+  (if (or (and (fboundp 'image-scaling-p)
+	       (image-scaling-p))
+	  (not (fboundp 'imagemagick-types)))
+      nil
+    'imagemagick))
+
 (defun movie-generate-buffer (files &optional order)
   (when (not order)
     (setq order 'chronological))
@@ -386,14 +393,16 @@ Otherwise, goto the start of the buffer."
 		       (concat (plist-get file :file) ".png"))))
 	  (cond
 	   ((file-exists-p png)
-	    (insert-image (create-image png 'imagemagick nil
+	    (insert-image (create-image png (movie--image-type) nil
 					:scale movie-image-scale)))
 	   ((and (plist-get file :directoryp)
 		 (file-exists-p (format "%s.png" (cdr dir-data))))
-	    (insert-image (create-image (format "%s.png" (cdr dir-data)) 'imagemagick nil
+	    (insert-image (create-image (format "%s.png" (cdr dir-data))
+					(movie--image-type) nil
 					:scale movie-image-scale)))
 	   (t
-	    (insert-image (create-image "~/src/movie.el/empty.png" 'imagemagick nil
+	    (insert-image (create-image "~/src/movie.el/empty.png"
+					(movie--image-type) nil
 					:scale movie-image-scale)))))
 	(beginning-of-line)
 	(put-text-property (point) (1+ (point)) 'movie-data file)))))
