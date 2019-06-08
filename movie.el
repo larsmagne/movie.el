@@ -300,8 +300,8 @@ Otherwise, goto the start of the buffer."
 		       (> (car f1) (car f2)))))))
 
 (defun movie--image-type ()
-  (if (or (and (fboundp 'image-scaling-p)
-	       (image-scaling-p))
+  (if (or (and (fboundp 'image-transforms-p)
+	       (image-transforms-p))
 	  (not (fboundp 'imagemagick-types)))
       nil
     'imagemagick))
@@ -1809,6 +1809,16 @@ output directories whose names match REGEXP."
       (re-search-forward "^$")
       (insert "Genre: best\n"))
     (write-region (point-min) (point-max) (expand-file-name "stats" dir))))
+
+(defun movie-find-display ()
+  "Return the highest display."
+  (with-temp-buffer
+    (call-process "xrandr" nil t)
+    (goto-char (point-min))
+    (let ((disp 0))
+      (while (re-search-forward " connected" nil t)
+	(incf disp))
+      disp)))
 
 (provide 'movie)
 
