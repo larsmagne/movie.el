@@ -757,6 +757,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (delete-file "/tmp/mpv-socket"))
     (let ((mpv (apply 'start-process "mpv" (current-buffer) command))
 	  (count 0)
+	  (request-id 0)
 	  socket)
       (while (not (file-exists-p "/tmp/mpv-socket"))
 	(sleep-for 0.1))
@@ -773,7 +774,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (when (zerop (mod (incf count) 10))
 	    (movie-send-mpv-command
 	     '((command . ["get_property" "video-bitrate"])
-	       (request_id . "rate"))))
+	       (request_id . ,(incf request-id)))))
 	  (sleep-for 0.1))
 	(when movie-after-play-callback
 	  (with-current-buffer (get-buffer-create "*mpv*")
@@ -880,7 +881,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (with-current-buffer "*mpv*"
     (goto-char (point-max))
     (when (and (file-exists-p movie-positions-file)
-	       (re-search-backward "time-pos" nil t))
+	       (re-search-backward "time-pos.*[0-9]" nil t))
       (beginning-of-line)
       (let* ((json (json-read))
 	     (position (cdr (assq 'data json)))
