@@ -734,6 +734,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (when (and (file-exists-p movie-positions-file)
 	     (or (not (equal (system-name) "quimbies"))
 		 (string-match "/tv/\\|/dvd/\\|http:\\|^/run" file))
+	     (not (string-match "/title_"  file))
 	     (not (equal file "/tv/live")))
     (with-temp-buffer
       (let ((coding-system-for-read 'utf-8))
