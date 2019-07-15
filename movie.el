@@ -749,9 +749,19 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 				    (if no-skip 0 2))
 				 0))))))))
 
+(defun movie-find-geometry ()
+  (let ((total-width (x-display-pixel-width))
+	(this-width (nth 2 (frame-monitor-geometry))))
+    (when (> total-width this-width)
+      this-width)))
+
 (defun movie-start-mpv (command &optional wait)
   (interactive (list (append movie-player
 			     (list (read-file-name "File: ")))))
+  (let ((start-x (movie-find-geometry)))
+    (when start-x
+      (setq command (append command (list "-geometry"
+					  (format "+%d+0" start-x))))))
   (setq movie-rotate-audio 0)
   (with-current-buffer (get-buffer-create "*mplayer*")
     (when (file-exists-p "/tmp/mpv-socket")
