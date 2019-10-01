@@ -1314,8 +1314,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		  (list :subtitles subtitles)))))
 
 (defun movie-mkv-length (string)
-  (and (string-match "\\([0-9.]+\\)s" string)
-       (string-to-number (match-string 1 string))))
+  (let ((time (iso8601-parse-time string)))
+    (+ (* (decoded-time-hour time) 60 60)
+       (* (decoded-time-minute time) 60)
+       (decoded-time-second time))))
 
 (defun movie-interlaced-p (file)
   (let ((stats (movie-get-stats (file-name-directory file))))
