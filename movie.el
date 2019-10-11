@@ -509,6 +509,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "s" 'movie-toggle-sort)
     (define-key map "r" 'movie-rename)
     (define-key map "R" 'movie-reload)
+    (define-key map "C" 'movie-clear-screenshots)
     (define-key map "l" 'movie-last-seen)
     (define-key map "-" 'movie-collapse)
     (define-key map "i" 'movie-mark-as-seen)
@@ -864,15 +865,15 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		     "unknown"
 		   file)))
 	   (highest (movie-find-highest-image)))
-      ;; For /dvd playing, we store the screenshots in the DVD
-      ;; directory.
-      ;;(when (string-match "^/dvd/" path)
-      ;; (setq dir (file-name-directory path)))
       (when (file-symlink-p "~/.movie-current")
 	(delete-file "~/.movie-current"))
       (make-symbolic-link dir "~/.movie-current")
       (unless (file-exists-p dir)
 	(make-directory dir t))
+      ;; And record the file.
+      (when (file-symlink-p "~/.movie-current-file")
+	(delete-file "~/.movie-current-file"))
+      (make-symbolic-link path "~/.movie-current-file")
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
@@ -1811,6 +1812,20 @@ output directories whose names match REGEXP."
   (interactive)
   (load "~/src/movie.el/movie.el")
   (message "Reloaded"))
+
+(defun movie-clear-screenshots ()
+  "Delete the screenshots from the screenshots directory."
+  (interactive)
+  (let ((dir (format
+	      "/var/tmp/screenshots/%s/"
+	      (file-name-nondirectory
+	       (directory-file-name default-directory)))))
+    (dolist (file (directory-files dir t "mpv-shot"))
+      (rename-file file
+		   (replace-regexp-in-string
+		    "mpv-shot"
+		    (format "old-shot-%s" (format-time-string "%FT%T"))
+		    file)))))
 
 (defun movie-add-genre (dir)
   (interactive (list (movie-current-file)))
