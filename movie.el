@@ -1704,8 +1704,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		  "inverted"))
   (setq movie-rotation (not movie-rotation)))
 
-(defun movie-rename-collection (match)
-  (dolist (dir (directory-files "/dvd" t match))
+(defun movie-split-collection (files)
+  "Split the dir under point into separate directories."
+  (interactive (list (dired-get-marked-files nil current-prefix-arg)))
+  (dolist (dir files)
     (let ((films (mapcar 'string-trim
 			 (split-string
 			  (replace-regexp-in-string
@@ -1719,7 +1721,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 					file new-dir)))
 	    do (make-directory new-dir)
 	    (rename-file file (expand-file-name (file-name-nondirectory file)
-						new-dir))))))
+						new-dir))
+	    (let ((png (concat ".png" file)))
+	      (when (file-exists-p png)
+		(rename-file png new-dir))))
+      (delete-directory dir))))
 
 (defun movie-goto-last-series ()
   "Go to the /dvd last series directory."
