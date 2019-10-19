@@ -759,6 +759,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-start-mpv (command &optional wait)
   (interactive (list (append movie-player
 			     (list (read-file-name "File: ")))))
+  ;; Kill any mpv that may be playing in case there's one hanging.
+  (call-process "pkill" nil nil nil "mpv")
   (let ((start-x (movie-find-geometry)))
     (when start-x
       (setq command (append command (list "-geometry"
