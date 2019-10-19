@@ -1712,19 +1712,23 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 			 (split-string
 			  (replace-regexp-in-string
 			   "^[^:]+?: " "" (file-name-nondirectory dir))
-			  ","))))
-      (loop for file in (directory-files dir t ".mkv$")
-	    for film in films
+			  ",")))
+	  (files (directory-files dir t ".mkv$")))
+      (loop for film = (pop films)
+	    while film
 	    for new-dir = (expand-file-name film "/dvd")
-	    when (and (not (file-exists-p new-dir))
-		      (y-or-n-p (format "Rename %s to %s?"
-					file new-dir)))
-	    do (make-directory new-dir)
-	    (rename-file file (expand-file-name (file-name-nondirectory file)
-						new-dir))
-	    (let ((png (concat ".png" file)))
-	      (when (file-exists-p png)
-		(rename-file png new-dir))))
+	    unless (file-exists-p new-dir)
+	    do
+	    (make-directory new-dir)
+	    (loop for file in (if (zerop (length films))
+				  files
+				(list (pop files)))
+		  do (rename-file file (expand-file-name
+					(file-name-nondirectory file)
+					new-dir))
+		  (let ((png (concat ".png" file)))
+		    (when (file-exists-p png)
+		      (rename-file png new-dir)))))
       (delete-directory dir))))
 
 (defun movie-goto-last-series ()
