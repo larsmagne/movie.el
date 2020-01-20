@@ -40,7 +40,7 @@
 
 (defvar movie-player
   '("/usr/src/mpv/build/mpv"
-    "--audio-device=alsa/plughw:CARD=Device,DEV=0"
+    "--audio-device=alsa/plughw:CARD=J75,DEV=0"
     "--vo=gpu"
     "--hwdec=vdpau"
     ;;"--vf=vdpaupp=denoise=1"
@@ -826,8 +826,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (incf num))
     result))
 
-(defvar movie-audio-devices
-  '("alsa/plughw:CARD=Device,DEV=0"	; Headphones
+(defconst movie-audio-devices
+  '("alsa/plughw:CARD=J75,DEV=0"	; Headphones
     "alsa/plughw:CARD=NVidia,DEV=7"	; TV
     "alsa/plughw:CARD=PCH,DEV=0")) ; Speakers
 
@@ -1317,7 +1317,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		  (list :subtitles subtitles)))))
 
 (defun movie-mkv-length (string)
-  (let ((time (iso8601-parse-time string)))
+  (let ((time (iso8601-parse-time (replace-regexp-in-string
+				   "^.*(" ""
+				   (replace-regexp-in-string ")" ""
+							     string)))))
     (+ (* (decoded-time-hour time) 60 60)
        (* (decoded-time-minute time) 60)
        (decoded-time-second time))))
