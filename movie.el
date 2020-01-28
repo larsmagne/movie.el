@@ -195,7 +195,7 @@ Otherwise, goto the start of the buffer."
      `(lambda (stats)
 	(let ((genres (cdr (assoc "Genre" stats))))
 	  (and genres
-	       (or (not only-unseen)
+	       (or (not ,only-unseen)
 		   (null (assoc "Seen" stats)))
 	       (member ,match (split-string genres ",")))))))))
 
