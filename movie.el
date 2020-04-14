@@ -1511,7 +1511,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 				  "/tv/unseen")))))))
 
 (defun movie-split-unseen (size)
-  "Move some files from /tv/unseen until we have SIZE GB."
+  "Move some files from /tv/unseen until we have SIZE MiB in /tv/other-unseen."
   (dolist (file (directory-files "/tv/other-unseen" t))
     (when (file-symlink-p file)
       (delete-file file)))
