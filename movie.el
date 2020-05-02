@@ -1728,15 +1728,18 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		  do (rename-file file (expand-file-name
 					(file-name-nondirectory file)
 					new-dir))
-		  (let ((png (concat ".png" file)))
+		  (let ((png (concat file ".png")))
 		    (when (file-exists-p png)
-		      (rename-file png new-dir)))))
+		      (rename-file png
+				   (expand-file-name
+				    (file-name-nondirectory png)
+				    new-dir))))))
       (delete-directory dir))))
 
 (defun movie-find-split-name (film)
   (loop for dir = (expand-file-name film "/dvd")
-	when (file-exists-p dir)
-	do (setq file (concat film " "))
+	while (file-exists-p dir)
+	do (setq film (concat film " "))
 	finally (return dir)))
 
 (defun movie-goto-last-series ()
