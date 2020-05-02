@@ -1719,8 +1719,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (files (directory-files dir t ".mkv$")))
       (loop for film = (pop films)
 	    while film
-	    for new-dir = (expand-file-name film "/dvd")
-	    unless (file-exists-p new-dir)
+	    for new-dir = (movie-find-split-name film)
 	    do
 	    (make-directory new-dir)
 	    (loop for file in (if (zerop (length films))
@@ -1733,6 +1732,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		    (when (file-exists-p png)
 		      (rename-file png new-dir)))))
       (delete-directory dir))))
+
+(defun movie-find-split-name (film)
+  (loop for dir = (expand-file-name film "/dvd")
+	when (file-exists-p dir)
+	do (setq file (concat film " "))
+	finally (return dir)))
 
 (defun movie-goto-last-series ()
   "Go to the /dvd last series directory."
