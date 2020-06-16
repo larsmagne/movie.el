@@ -1757,9 +1757,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (while (and (not (bobp))
 		  (not found))
 	(forward-line -1)
-	(let* ((current (caddr
-			 (split-string
-			  (buffer-substring (point) (line-end-position)))))
+	(let* ((current (save-restriction
+			  (narrow-to-region (point) (line-end-position))
+			  (search-forward " " nil t 2)
+			  (buffer-substring (point) (point-max))))
 	       (dir (cadr (assoc current mkvs))))
 	  (when (and dir
 		     (movie-tv-series-p (file-name-directory dir)))
