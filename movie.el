@@ -456,8 +456,13 @@ Otherwise, goto the start of the buffer."
 		(movie-rip-time f2))))
 	  ((eq order 'director)
 	   (lambda (f1 f2)
-	     (string< (or (plist-get f1 :director) 0)
-		      (or (plist-get f2 :director) 0))))
+	     (let ((d1 (if (zerop (length (plist-get f1 :director)))
+			   "ZZZZZ"
+			 (plist-get f1 :director)))
+		   (d2 (if (zerop (length (plist-get f2 :director)))
+			   "ZZZZZ"
+			 (plist-get f2 :director))))		   
+	     (string< d1 d2))))
 	  ((eq order 'country)
 	   (lambda (f1 f2)
 	     (string< (or (plist-get f1 :country) "")
@@ -1499,7 +1504,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		 ;;(member (plist-get movie :country) '("" "fr" "us" "gb" "ca"))
 		 (plist-get movie :genre)
 		 (not (string-match "Star Trek" (plist-get movie :file)))
-		 (not (string-match "Allen" (plist-get movie :director)))
+		 (not (string-match "Allen\\|Bergman"
+				    (plist-get movie :director)))
 		 (not (member "tv" genre))
 		 (not (member "best" genre))
 		 (not (member "Amazon" genre))
