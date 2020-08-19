@@ -457,10 +457,10 @@ Otherwise, goto the start of the buffer."
 	  ((eq order 'director)
 	   (lambda (f1 f2)
 	     (let ((d1 (if (zerop (length (plist-get f1 :director)))
-			   "ZZZZZ"
+			   "ý"
 			 (plist-get f1 :director)))
 		   (d2 (if (zerop (length (plist-get f2 :director)))
-			   "ZZZZZ"
+			   "ý"
 			 (plist-get f2 :director))))		   
 	     (string< d1 d2))))
 	  ((eq order 'country)
@@ -650,6 +650,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		     (movie-add-vf options "crop=700:300")))
 	      ((eq char ?i)
 	       (setq options (append options (list movie-deinterlace-switch))))
+	      ((eq char ?a)
+	       (setq options (append options (list "--aspect=16:9"))))
 	      ((eq char ?I)
 	       (setq options (delete movie-deinterlace-switch options)))
 	      (t
