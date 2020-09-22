@@ -167,6 +167,7 @@ Otherwise, goto the start of the buffer."
     (completing-read "Match: " (append movie-genres
 				       (list "nostats" "unseen" "all"
 					     "mostly-seen"
+					     "seen-version"
 					     "movies")))
     current-prefix-arg))
   (movie-browse
@@ -191,6 +192,9 @@ Otherwise, goto the start of the buffer."
     ((equal match "mostly-seen")
      (lambda (stats)
        (equal (cdr (assoc "Status" stats)) "mostly-seen")))
+    ((equal match "seen-version")
+     (lambda (stats)
+       (equal (cdr (assoc "Status" stats)) "seen-version")))
     (t
      `(lambda (stats)
 	(let ((genres (cdr (assoc "Genre" stats))))
@@ -280,6 +284,8 @@ Otherwise, goto the start of the buffer."
 	(setq data (list :seen '(t))))
       (when (equal (cdr (assoc "Status" stats)) "mostly-seen")
 	(setq data (list :mostly-seen '(t))))
+      (when (equal (cdr (assoc "Status" stats)) "seen-version")
+	(setq data (list :seen-version '(t))))
       (when (assoc "Genre" stats)
 	(nconc data (list :genre (cdr (assoc "Genre" stats)))))
       (dolist (track (cdr (assoc 'tracks stats)))
@@ -348,7 +354,8 @@ Otherwise, goto the start of the buffer."
 	    (propertize " " 'display `(space :align-to (600)))
 	  "")
 	(if (and (not (plist-get file :seen))
-		 (not (plist-get file :mostly-seen)))
+		 (not (plist-get file :mostly-seen))
+		 (not (plist-get file :seen-version)))
 	    (file-name-nondirectory (plist-get file :file))
 	  (propertize
 	   (file-name-nondirectory (plist-get file :file))
@@ -1503,10 +1510,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		 (plist-get movie :genre)
 		 (plist-get movie :year)
 		 (not (plist-get movie :mostly-seen))
+		 (not (plist-get movie :seen-version))
 		 ;;(member (plist-get movie :country) '("" "fr" "us" "gb" "ca"))
 		 (plist-get movie :genre)
 		 (not (string-match "Star Trek" (plist-get movie :file)))
-		 (not (string-match "Allen\\|Bergman"
+		 (not (string-match "Allen"
 				    (plist-get movie :director)))
 		 (not (member "tv" genre))
 		 (not (member "best" genre))
@@ -1630,6 +1638,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 			   (string< (movie-title m1) (movie-title m2)))))
       (when (and (not (plist-get movie :seen))
 		 (not (plist-get movie :mostly-seen))
+		 (not (plist-get movie :seen-version))
 		 (plist-get movie :genre)
 		 (not (string-match "Star Trek" (plist-get movie :file)))
 		 (not (string-match "Allen" (plist-get movie :director)))
