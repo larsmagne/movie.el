@@ -47,6 +47,7 @@
     ;;"--tone-mapping=clip" "--tone-mapping-param=1"
     "--input-ipc-server=/tmp/mpv-socket"
     "--fullscreen"
+    "--stop-screensaver"
     )
   "Command to play a file.")
 
@@ -463,13 +464,8 @@ Otherwise, goto the start of the buffer."
 		(movie-rip-time f2))))
 	  ((eq order 'director)
 	   (lambda (f1 f2)
-	     (let ((d1 (if (zerop (length (plist-get f1 :director)))
-			   "ý"
-			 (plist-get f1 :director)))
-		   (d2 (if (zerop (length (plist-get f2 :director)))
-			   "ý"
-			 (plist-get f2 :director))))		   
-	     (string< d1 d2))))
+	     (string< (movie--director-sort (plist-get f1 :director))
+		      (movie--director-sort (plist-get f2 :director)))))
 	  ((eq order 'country)
 	   (lambda (f1 f2)
 	     (string< (or (plist-get f1 :country) "")
@@ -482,6 +478,11 @@ Otherwise, goto the start of the buffer."
 			  (time-less-p (or (plist-get f1 :year) 0)
 				       (or (plist-get f2 :year) 0))))))
     (sort files predicate)))
+
+(defun movie--director-sort (director)
+  (if (zerop (length director))
+      "ý"
+    (string-join (reverse (split-string director)) " ")))
 
 (defun movie-rip-time (elem)
   (let ((files (directory-files (getf elem :file) t "[.]mkv$")))
@@ -1474,7 +1475,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(search-forward "\n\n")
 	(forward-line -1))
       (insert (format "Status: %s\n"
-		      (if mostly "mostly-seen" "seen")))
+		      (if mostly (if (equal mostly 1)
+				     "seen-version"
+				   "mostly-seen")
+			"seen")))
       (insert (format "Seen: %s\n" (format-time-string "%Y%m%dT%H%M%S"))))
     (message "Marked as seen")))
 
@@ -1852,6 +1856,7 @@ output directories whose names match REGEXP."
   "Reload movie.el."
   (interactive)
   (load "~/src/movie.el/movie.el")
+  (load "~/.emacs")
   (message "Reloaded"))
 
 (defun movie-clear-screenshots ()
