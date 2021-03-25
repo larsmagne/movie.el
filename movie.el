@@ -496,7 +496,7 @@ Otherwise, goto the start of the buffer."
 					  (file-attribute-modification-time
 					   (file-attributes f))))))))))))
 
-(defvar movie-mode-map 
+(defconst movie-mode-map 
   (let ((map (make-sparse-keymap)))
     (suppress-keymap map)
     (define-key map "\r" 'movie-find-file)
@@ -541,6 +541,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "Y" 'movie-list-by-year)
     (define-key map "L" 'movie-list-by-director)
     (define-key map "e" 'movie-goto-last-series)
+    (define-key map "E" 'movie-play-current)
     (define-key map "*" 'movie-mark)
     map))
 
@@ -891,6 +892,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (when (file-symlink-p "~/.movie-current-file")
 	(delete-file "~/.movie-current-file"))
       (make-symbolic-link path "~/.movie-current-file")
+      (with-temp-buffer
+	(insert path)
+	(let ((coding-system-for-write 'utf-8))
+	  (write-region (point-min) (point-max) "/tv/data/current-file"
+			nil 'silent)))
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
@@ -1894,6 +1900,15 @@ output directories whose names match REGEXP."
       (while (re-search-forward " connected" nil t)
 	(incf disp))
       disp)))
+
+(defun movie-play-current ()
+  "Start playing the last recorded play from the .movie.positions file."
+  (interactive)
+  (let ((file (with-temp-buffer
+		(let ((coding-system-for-read 'utf-8))
+		  (insert-file-contents "/tv/data/current-file")
+		  (buffer-string)))))
+    (movie-find-file file)))
 
 (provide 'movie)
 
