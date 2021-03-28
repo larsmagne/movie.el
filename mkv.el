@@ -25,7 +25,7 @@
 
 ;;; Code:
 
-(require 'cl)
+(require 'cl-lib)
 (require 'dom)
 (require 'shr)
 
@@ -39,8 +39,8 @@
 
 (defun mkv-parse ()
   (apply 'dom-node 'mkv-data nil
-	 (loop while (not (eobp))
-	       collect (mkv-parse-1))))
+	 (cl-loop while (not (eobp))
+		  collect (mkv-parse-1))))
 
 (defun mkv-parse-1 ()
   (let* ((line (mkv-parse-line))
