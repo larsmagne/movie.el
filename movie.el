@@ -1093,7 +1093,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (let ((prefix ""))
     (dolist (part (split-string file "[.]"))
       (if (string-match "[0-9]" part)
-	  (return prefix)
+	  (cl-return prefix)
 	(setq prefix
 	      (concat
 	       prefix
