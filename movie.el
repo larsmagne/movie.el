@@ -1771,7 +1771,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (cl-loop for dir = (expand-file-name film "/dvd")
 	   while (file-exists-p dir)
 	   do (setq film (concat film " "))
-	   finally (return dir)))
+	   finally (cl-return dir)))
 
 (defun movie-goto-last-series ()
   "Go to the /dvd last series directory."
