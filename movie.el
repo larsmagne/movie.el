@@ -128,9 +128,9 @@ Otherwise, goto the start of the buffer."
       ;; We want to go to the last "seen" track.
       (movie-goto-movie
        (or
-	(loop for track in (reverse (cdr (assoc 'tracks stats)))
-	      when (plist-get (cdr track) :seen)
-	      return (car track))
+	(cl-loop for track in (reverse (cdr (assoc 'tracks stats)))
+		 when (plist-get (cdr track) :seen)
+		 return (car track))
 	(caar (cdr (assoc 'tracks stats)))))
       t)))
 
@@ -801,10 +801,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (when wait
 	(while (process-live-p mpv)
 	  ;; Once a second, get the bitrate.
-	  (when (zerop (mod (incf count) 10))
+	  (when (zerop (mod (cl-incf count) 10))
 	    (movie-send-mpv-command
 	     '((command . ["get_property" "video-bitrate"])
-	       (request_id . ,(incf request-id)))))
+	       (request_id . ,(cl-incf request-id)))))
 	  (sleep-for 0.1))
 	(when movie-after-play-callback
 	  (with-current-buffer (get-buffer-create "*mpv*")
@@ -839,7 +839,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	result)
     (while (directory-files movie-recording-directory
 			    nil (setq result (format "anim%02d" num)))
-      (incf num))
+      (cl-incf num))
     result))
 
 (defconst movie-audio-devices
@@ -855,7 +855,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (movie-send-mpv-command
    `((command . ["set_property" "audio-device"
 		 ,(elt movie-audio-devices
-		       (mod (incf movie-current-audio-device)
+		       (mod (cl-incf movie-current-audio-device)
 			    (length movie-audio-devices)))]))))
   
 (defun movie-play-1 (player)
@@ -1295,11 +1295,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (caar
      (sort
       (nreverse
-       (loop while (not (eobp))
-	     for (format code resolution note) =
-	     (split-string (buffer-substring (point) (line-end-position)))
-	     collect (cons format resolution)
-	     do (forward-line 1)))
+       (cl-loop while (not (eobp))
+		for (format code resolution note) =
+		(split-string (buffer-substring (point) (line-end-position)))
+		collect (cons format resolution)
+		do (forward-line 1)))
       'movie-resolution-predicate))))
 
 (defun movie-resolution-predicate (e1 e2)
@@ -1325,15 +1325,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   "Output pertinent information about MKV FILE."
   (interactive "fMKV File: ")
   (let* ((dom (mkv-information file))
-	 (subtitles (loop for track in (dom-by-tag dom 'A-track)
-			  when (equal (dom-attr track :Track-type) "subtitles")
-			  collect (dom-attr track :Language))))
+	 (subtitles
+	  (cl-loop for track in (dom-by-tag dom 'A-track)
+		   when (equal (dom-attr track :Track-type) "subtitles")
+		   collect (dom-attr track :Language))))
     `(:length ,(movie-mkv-length
 		(dom-attr (dom-by-tag dom 'Segment-information) :Duration))
-	      :audio-tracks ,(loop for track in (dom-by-tag dom 'A-track)
-				   when (equal (dom-attr track :Track-type) "audio")
-				   collect (or (dom-attr track :Language)
-					       (dom-attr track :Name)))
+	      :audio-tracks
+	      ,(cl-loop for track in (dom-by-tag dom 'A-track)
+			when (equal (dom-attr track :Track-type) "audio")
+			collect (or (dom-attr track :Language)
+				    (dom-attr track :Name)))
 	      ,@(when subtitles
 		  (list :subtitles subtitles)))))
 
@@ -1430,12 +1432,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	   (data (imdb-query-full (plist-get stats :title)))
 	   imdb)
       (when data
-	(loop for elem in data
-	      when (or (equal (plist-get stats :director)
-			      (plist-get elem :director))
-		       (equal (plist-get stats :year)
-			      (plist-get elem :year)))
-	      do (setq imdb elem))
+	(cl-loop for elem in data
+		 when (or (equal (plist-get stats :director)
+				 (plist-get elem :director))
+			  (equal (plist-get stats :year)
+				 (plist-get elem :year)))
+		 do (setq imdb elem))
 	(unless imdb
 	  (setq imdb (imdb-query (plist-get stats :title))))
 	(when imdb
@@ -1543,16 +1545,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (delete-file file)))
   (let ((films
 	 (sort
-	  (loop for film in (directory-files "/tv/unseen" t)
-		unless (string-match "^[.]" (file-name-nondirectory film))
-		collect (cons (movie-film-size film) film))
+	  (cl-loop for film in (directory-files "/tv/unseen" t)
+		   unless (string-match "^[.]" (file-name-nondirectory film))
+		   collect (cons (movie-film-size film) film))
 	  (lambda (f1 f2)
 	    (< (random) (random))))))
-    (loop for (s . link) in films
-	  do (decf size (/ (float s) 1000 1000 1000))
-	  while (plusp size)
-	  do (rename-file link (expand-file-name (file-name-nondirectory link)
-						 "/tv/other-unseen")))))
+    (cl-loop for (s . link) in films
+	     do (cl-decf size (/ (float s) 1000 1000 1000))
+	     while (plusp size)
+	     do (rename-file link (expand-file-name
+				   (file-name-nondirectory link)
+				   "/tv/other-unseen")))))
 
 (defun movie-move-small-unseen ()
   "Create a directory of the smallest films from the unseen directory."
@@ -1562,24 +1565,24 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (delete-file file)))
   (let ((films
 	 (sort
-	  (loop for film in (directory-files "/tv/unseen" t)
-		unless (string-match "^[.]" (file-name-nondirectory film))
-		collect (cons (movie-film-size film) film))
+	  (cl-loop for film in (directory-files "/tv/unseen" t)
+		   unless (string-match "^[.]" (file-name-nondirectory film))
+		   collect (cons (movie-film-size film) film))
 	  (lambda (f1 f2)
 	    (< (car f1) (car f2)))))
 	;; 200GB
 	(total (* 1000 1000 1000 205)))
-    (loop for (size . film) in films
-	  while (plusp total)
-	  do
-	  (decf total size)
-	  (rename-file film
-		       (expand-file-name (file-name-nondirectory film)
-					 "/tv/smallunseen")))))
+    (cl-loop for (size . film) in films
+	     while (plusp total)
+	     do
+	     (cl-decf total size)
+	     (rename-file film
+			  (expand-file-name (file-name-nondirectory film)
+					    "/tv/smallunseen")))))
 
 (defun movie-film-size (film)
-  (loop for file in (directory-files-recursively film ".")
-	sum (* 1.0 (file-attribute-size (file-attributes file)))))
+  (cl-loop for file in (directory-files-recursively film ".")
+	   sum (* 1.0 (file-attribute-size (file-attributes file)))))
 
 ;; "Bitchin Rides S01E06 The Juice Is Worth the Squeeze HDTV XviD-AF"
 ;; "Naild.It.S01E01.Nail.Pride.HDTV.x264-DaViEW"
@@ -1699,18 +1702,19 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (movie-concatenate-id id))))
 
 (defun movie-concatenate-id-1 (id)
-  (loop for file in (cons (expand-file-name (format "Encode_1080P_%s.mp4" id)
-					    movie-prime-directory)
-			  (sort (directory-files
-				 movie-prime-directory
-				 t
-				 (format "Encode_1080P_%s_.*.mp4" id))
-				'string-version-lessp))
-	for size = (file-attribute-size (file-attributes file))
-	while (or t ;; With the extension cord the recorder switches
-		  ;; itself off so we don't get all these small files.
-		  (not (= (/ size 1024 1024) 120)))
-	collect file))
+  (cl-loop for file in (cons (expand-file-name
+			      (format "Encode_1080P_%s.mp4" id)
+			      movie-prime-directory)
+			     (sort (directory-files
+				    movie-prime-directory
+				    t
+				    (format "Encode_1080P_%s_.*.mp4" id))
+				   'string-version-lessp))
+	   for size = (file-attribute-size (file-attributes file))
+	   while (or t ;; With the extension cord the recorder switches
+		     ;; itself off so we don't get all these small files.
+		     (not (= (/ size 1024 1024) 120)))
+	   collect file))
 
 (defun movie-concatenate-id (id)
   (let ((files (movie-concatenate-id-1 id))
@@ -1744,39 +1748,39 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 			   "^[^:]+?: " "" (file-name-nondirectory dir))
 			  ",")))
 	  (files (directory-files dir t ".mkv$")))
-      (loop for film = (pop films)
-	    while film
-	    for new-dir = (movie-find-split-name film)
-	    do
-	    (make-directory new-dir)
-	    (loop for file in (if (zerop (length films))
-				  files
-				(list (pop files)))
-		  do (rename-file file (expand-file-name
-					(file-name-nondirectory file)
-					new-dir))
-		  (let ((png (concat file ".png")))
-		    (when (file-exists-p png)
-		      (rename-file png
-				   (expand-file-name
-				    (file-name-nondirectory png)
-				    new-dir))))))
+      (cl-loop for film = (pop films)
+	       while film
+	       for new-dir = (movie-find-split-name film)
+	       do
+	       (make-directory new-dir)
+	       (cl-loop for file in (if (zerop (length films))
+					files
+				      (list (pop files)))
+			do (rename-file file (expand-file-name
+					      (file-name-nondirectory file)
+					      new-dir))
+			(let ((png (concat file ".png")))
+			  (when (file-exists-p png)
+			    (rename-file png
+					 (expand-file-name
+					  (file-name-nondirectory png)
+					  new-dir))))))
       (delete-directory dir))))
 
 (defun movie-find-split-name (film)
-  (loop for dir = (expand-file-name film "/dvd")
-	while (file-exists-p dir)
-	do (setq film (concat film " "))
-	finally (return dir)))
+  (cl-loop for dir = (expand-file-name film "/dvd")
+	   while (file-exists-p dir)
+	   do (setq film (concat film " "))
+	   finally (return dir)))
 
 (defun movie-goto-last-series ()
   "Go to the /dvd last series directory."
   (interactive)
-  (let ((mkvs (loop for path in
-		    (movie-directory-files-recursively "/dvd" "[.]mkv\\'")
-		    collect (list
-			     (file-name-nondirectory path)
-			     path)))
+  (let ((mkvs (cl-loop for path in
+		       (movie-directory-files-recursively "/dvd" "[.]mkv\\'")
+		       collect (list
+				(file-name-nondirectory path)
+				path)))
 	found)
     (with-temp-buffer
       (insert-file-contents movie-positions-file)
@@ -1799,9 +1803,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-tv-series-p (dir)
   (let ((tracks (cdr (assq 'tracks (movie-get-stats dir)))))
     (and (> (length tracks) 5)
-	 (> (loop for track in tracks
-		  when (> (getf (cdr track) :length) (* 20 60))
-		  sum 1)
+	 (> (cl-loop for track in tracks
+		     when (> (getf (cdr track) :length) (* 20 60))
+		     sum 1)
 	    5))))
 
 (defun movie-directory-files-recursively (dir regexp &optional include-directories)
@@ -1898,7 +1902,7 @@ output directories whose names match REGEXP."
     (goto-char (point-min))
     (let ((disp 0))
       (while (re-search-forward " connected" nil t)
-	(incf disp))
+	(cl-incf disp))
       disp)))
 
 (defun movie-play-current ()
