@@ -714,7 +714,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (dolist (sub subs)
       (when (file-exists-p sub)
 	(setq movie-player (append movie-player
-				   (list "--sub-file" sub)))))
+				   (list (concat "--sub-file=" sub))))))
     (if (movie-interlaced-p file)
 	(movie-play-1 (append movie-player (list movie-deinterlace-switch)
 			      (list file)))
