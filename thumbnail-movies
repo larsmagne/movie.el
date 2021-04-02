@@ -12,17 +12,14 @@ sub Wanted {
 	    $size > 0 &&
 	    ! -e "$file.png" &&
 	    $mtime + 60 < time()) {
+	    chdir "/tmp";
 	    print "$file\n";
-	    system("/usr/bin/mplayer", "-vo", "png",
-		   "-nosound",
-		   "-sstep", "10",
-		   "-frames", "3",
-		   "$file");
+	    system("ffmpeg", "-i", $file,
+		   "-r", "30", "-f", "image2",
+		   "-frames:v", "1", "-ss", "20", "image%03d.png");
 	    system("convert", "-scale", "300x",
-		   "$dir/00000003.png", "$file.png");
-	    unlink("$dir/00000003.png");
-	    unlink("$dir/00000002.png");
-	    unlink("$dir/00000001.png");
+		   "/tmp/image001.png", "$file.png");
+	    unlink("/tmp/image001.png");
 	}
     }
 }
