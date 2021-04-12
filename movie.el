@@ -511,7 +511,8 @@ Otherwise, goto the start of the buffer."
     (define-key map "V" 'movie-play-vlc-dvd)
     (define-key map "f" 'movie-play-next-vob)
     (define-key map "F" 'movie-play-current-vob)
-    (define-key map "T" 'movie-change-rate)
+    (define-key map "r" 'movie-change-rate)
+    (define-key map "T" 'movie-change-rate-current)
     ;;(define-key map "T" 'movie-thumbnails)
     (define-key map "q" 'bury-buffer)
     (define-key map "k" 'movie-browse)
@@ -521,7 +522,6 @@ Otherwise, goto the start of the buffer."
     (define-key map "g" 'movie-rescan)
     (define-key map "t" 'movie-find-torrent)
     (define-key map "s" 'movie-toggle-sort)
-    (define-key map "r" 'movie-rename)
     (define-key map "R" 'movie-reload)
     (define-key map "C" 'movie-clear-screenshots)
     (define-key map "l" 'movie-last-seen)
@@ -1915,6 +1915,11 @@ output directories whose names match REGEXP."
 		  (buffer-string)))))
     (movie-find-file file)))
 
+(defun movie-change-rate-current (file)
+  "Change the frame rate to the file under point."
+  (interactive (list (movie-current-file)))
+  (movie-change-rate (movie--find-closest-fps (movie--file file))))
+
 (defun movie-change-rate (rate)
   "Change frame rates."
   (interactive
@@ -1933,6 +1938,27 @@ output directories whose names match REGEXP."
     (call-process "xrandr" nil t)
     (write-region (point-min) (point-max) "/tmp/nxr"))
   (message "Set frame rate to %s" rate))
+
+(defun movie--fps (file)
+  (with-temp-buffer
+    (call-process "mediainfo" nil t nil file)
+    (goto-char (point-min))
+    (when (re-search-forward "Frame rate.*: \\([0-9.]+\\)" nil t)
+      (string-to-number (match-string 1)))))
+
+(defvar movie-valid-fps
+  '("59.94" "50.00" "29.97" "25.00" "23.98"))
+
+(defun movie--find-closest-fps (fps)
+  (cdar
+   (stable-sort
+    (cl-loop for cand in movie-valid-fps
+	     append (loop for mult from 1 upto 4
+			  collect (cons (abs (- (* mult fps)
+						(string-to-number cand)))
+					cand)))
+    (lambda (f1 f2)
+      (< (car f1) (car f2))))))
 
 (provide 'movie)
 
