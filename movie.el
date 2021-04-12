@@ -1918,7 +1918,7 @@ output directories whose names match REGEXP."
 (defun movie-change-rate-current (file)
   "Change the frame rate to the file under point."
   (interactive (list (movie-current-file)))
-  (movie-change-rate (movie--find-closest-fps (movie--file file))))
+  (movie-change-rate (movie--find-closest-fps (movie--fps file))))
 
 (defun movie-change-rate (rate)
   "Change frame rates."
