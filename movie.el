@@ -511,7 +511,8 @@ Otherwise, goto the start of the buffer."
     (define-key map "V" 'movie-play-vlc-dvd)
     (define-key map "f" 'movie-play-next-vob)
     (define-key map "F" 'movie-play-current-vob)
-    (define-key map "T" 'movie-thumbnails)
+    (define-key map "T" 'movie-change-rate)
+    ;;(define-key map "T" 'movie-thumbnails)
     (define-key map "q" 'bury-buffer)
     (define-key map "k" 'movie-browse)
     (define-key map "c" 'movie-play-cropped)
@@ -1913,6 +1914,25 @@ output directories whose names match REGEXP."
 		  (insert-file-contents "/tv/data/current-file")
 		  (buffer-string)))))
     (movie-find-file file)))
+
+(defun movie-change-rate (rate)
+  "Change frame rates."
+  (interactive
+   (list
+    (cadr
+     (read-multiple-choice
+      "Set frame rate: "
+      '((?5 "50")
+	(?6 "59.94")
+	(?4 "23.98"))))))
+  (call-process "xrandr" nil nil nil
+		"--output" "HDMI-0"
+		"--mode" "3840x2160"
+		"--rate" rate)
+  (with-temp-buffer
+    (call-process "xrandr" nil t)
+    (write-region (point-min) (point-max) "/tmp/nxr"))
+  (message "Set frame rate to %s" rate))
 
 (provide 'movie)
 
