@@ -591,13 +591,15 @@ Otherwise, goto the start of the buffer."
     (movie-play file)
     (discard-input)))
 
-(defun movie-play-best-file (file)
-  "Play the longest file in the directory/file under point."
-  (interactive (list (movie-current-file)))
+(defun movie-play-best-file (file &optional no-adjust)
+  "Play the longest file in the directory/file under point.
+If NO-ADJUST (the interactive prefix), don't change the frame rate."
+  (interactive (list (movie-current-file) current-prefix-arg))
   (call-process "pkill" nil nil nil "touchegg")
   (when (file-directory-p file)
     (setf file (movie-best-file file)))
-  (movie-change-rate-current file)
+  (unless no-adjust
+    (movie-change-rate-current file))
   (movie-find-file file))
 
 (defun movie-best-file (dir)
