@@ -188,8 +188,8 @@ Otherwise, goto the start of the buffer."
 	 (and genres
 	      (null (assoc "Seen" stats))
 	      (assoc "Year" stats)
-	      (not (member "tv" (split-string genres ",")))
-	      (not (member "best" (split-string genres ",")))))))
+	      (not (member "eclipse" (split-string genres ",")))
+	      (not (member "tv" (split-string genres ",")))))))
     ((equal match "mostly-seen")
      (lambda (stats)
        (equal (cdr (assoc "Status" stats)) "mostly-seen")))
@@ -326,11 +326,12 @@ Otherwise, goto the start of the buffer."
       (when (eq order 'year)
 	(insert (format "%04d " (or (plist-get file :year) 9999))))
       (when (eq order 'rip-time)
-	(insert (format-time-string " %Y-%m-%d" (movie-rip-time file))))
+	(insert (format-time-string " %Y-%m-%d " (movie-rip-time file))))
       (when (eq order 'country)
 	(insert (format "%04d %02s " (or (plist-get file :year) 9999)
 			(or (plist-get file :country) ""))))
-      (when (eq order 'director)
+      (when (or (eq order 'director)
+		(eq order 'rip-time))
 	(insert (format "%4s %-20s "
 			(plist-get file :year)
 			(let ((string (or (plist-get file :director) "")))
@@ -339,7 +340,8 @@ Otherwise, goto the start of the buffer."
 			    string)))))
       (insert
        (format
-	" %5s%s %s%s\n"
+	(if dvdp "%s%s%s%s\n"
+	  " %5s%s %s%s\n")
 	(if (plist-get file :directoryp)
 	    (if dvdp
 		""
@@ -595,6 +597,7 @@ Otherwise, goto the start of the buffer."
   (call-process "pkill" nil nil nil "touchegg")
   (when (file-directory-p file)
     (setf file (movie-best-file file)))
+  (movie-change-rate-current file)
   (movie-find-file file))
 
 (defun movie-best-file (dir)
@@ -1891,10 +1894,22 @@ output directories whose names match REGEXP."
     (if (re-search-forward "^Genre: ")
 	(progn
 	  (end-of-line)
-	  (insert ",best"))
+	  (insert ",eclipse"))
       (re-search-forward "^$")
-      (insert "Genre: best\n"))
+      (insert "Genre: eclipse\n"))
     (write-region (point-min) (point-max) (expand-file-name "stats" dir))))
+
+(defun movie-remove-genre (dir)
+  (interactive (list (movie-current-file)))
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "stats" dir))
+    (when (re-search-forward "^Genre: ")
+      (save-restriction
+	(match-beginning 0)
+	(line-end-position))
+      (when (search-forward ",eclipse")
+	(replace-match "" t t))
+      (write-region (point-min) (point-max) (expand-file-name "stats" dir)))))
 
 (defun movie-find-display ()
   "Return the highest display."
@@ -1953,7 +1968,7 @@ output directories whose names match REGEXP."
   (cdar
    (stable-sort
     (cl-loop for cand in movie-valid-fps
-	     append (loop for mult from 1 upto 4
+	     append (loop for mult from 1 upto 1
 			  collect (cons (abs (- (* mult fps)
 						(string-to-number cand)))
 					cand)))
