@@ -354,7 +354,7 @@ Otherwise, goto the start of the buffer."
 	     (round
 	      (/ (or (plist-get file :size) -1) 1024 1024)))))
 	(if (member system-name '("sandy" "quimbies"))
-	    (propertize " " 'display `(space :align-to (600)))
+	    (propertize " " 'display `(space :align-to (300)))
 	  "")
 	(if (and (not (plist-get file :seen))
 		 (not (plist-get file :mostly-seen))
