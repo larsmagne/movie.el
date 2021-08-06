@@ -97,7 +97,8 @@
 		     (directory-file-name directory)) "dvd"))
     (setq match 
 	  (lambda (stats)
-	    (null (assoc "Seen" stats)))))
+	    (and (null (assoc "Seen" stats))
+		 (null (assoc "Seen-Version" stats))))))
   (setq directory (file-truename directory))
   (let ((files (movie-get-files directory match)))
     (when (null order)
@@ -181,12 +182,14 @@ Otherwise, goto the start of the buffer."
      nil)
     ((equal match "unseen")
      (lambda (stats)
-       (null (assoc "Seen" stats))))
+       (and (null (assoc "Seen" stats))
+	    (null (assoc "Seen-Version" stats)))))
     ((equal match "movies")
      (lambda (stats)
        (let ((genres (cdr (assoc "Genre" stats))))
 	 (and genres
 	      (null (assoc "Seen" stats))
+	      (null (assoc "Seen-Version" stats))
 	      (assoc "Year" stats)
 	      (not (member "eclipse" (split-string genres ",")))
 	      (not (member "tv" (split-string genres ",")))))))
@@ -201,7 +204,8 @@ Otherwise, goto the start of the buffer."
 	(let ((genres (cdr (assoc "Genre" stats))))
 	  (and genres
 	       (or (not ,only-unseen)
-		   (null (assoc "Seen" stats)))
+		   (and (null (assoc "Seen" stats))
+			(null (assoc "Seen-Version" stats))))
 	       (member ,match (split-string genres ",")))))))))
 
 (defun movie-list-by-year ()
