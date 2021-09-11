@@ -1090,6 +1090,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 				      (movie-current-file)))))
 	 (dir (expand-file-name prefix default-directory)))
     (unless (file-exists-p dir)
+      (setq dir (downcase dir))
       (make-directory dir))
     (dolist (file (directory-files default-directory t))
       (when (and (not (equal (file-name-nondirectory file) "."))
