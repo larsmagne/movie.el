@@ -603,7 +603,8 @@ If NO-ADJUST (the interactive prefix), don't change the frame rate."
   (when (file-directory-p file)
     (setf file (movie-best-file file)))
   (unless no-adjust
-    (movie-change-rate-current file))
+    ;;(movie-change-rate-current file)
+    )
   (movie-find-file file))
 
 (defun movie-best-file (dir)
@@ -1877,7 +1878,21 @@ output directories whose names match REGEXP."
   (interactive)
   (load "~/src/movie.el/movie.el")
   (load "~/.emacs")
-  (message "Reloaded"))
+  (message "Reloaded")
+  (movie-reload-play))
+
+(defun movie-reload-play ()
+  (call-process "/usr/src/mpv/build/mpv" nil (get-buffer-create "*foo*") nil
+		"--audio-device=alsa/plughw:CARD=J75,DEV=0"
+		"--vo=gpu"
+		"--hwdec=vdpau"
+		"--demuxer-max-back-bytes=2147483647"
+		;;"--vf=vdpaupp=denoise=1"
+		;;"--tone-mapping=clip" "--tone-mapping-param=1"
+		"--input-ipc-server=/tmp/mpv-socket"
+		"--fullscreen"
+		"--stop-screensaver"
+		"/dev/video0"))
 
 (defun movie-clear-screenshots ()
   "Delete the screenshots from the screenshots directory."
