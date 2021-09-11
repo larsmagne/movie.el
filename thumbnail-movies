@@ -13,7 +13,7 @@ sub Wanted {
 	    ! -e "$file.png" &&
 	    $mtime + 60 < time()) {
 	    chdir "/tmp";
-	    print "$file\n";
+	    print "Thumbing $file\n";
 	    system("ffmpeg", "-i", $file,
 		   "-r", "30", "-f", "image2",
 		   "-frames:v", "1", "-ss", "20", "image%03d.png");
