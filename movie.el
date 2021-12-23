@@ -455,11 +455,19 @@ Otherwise, goto the start of the buffer."
 		      (movie-sortable-name (plist-get f2 :file)))))
 	  ((eq order 'chronological)
 	   (lambda (f1 f2)
-	     (if (plist-get f1 :recorded)
-		 (string< (plist-get f1 :recorded)
-			  (plist-get f2 :recorded))
+	     (cond
+	      ((plist-get f1 :recorded)
+	       (string< (plist-get f1 :recorded)
+			(plist-get f2 :recorded)))
+	      ((member (file-name-nondirectory (plist-get f1 :file))
+		       '("series" "rainy-day" "films"))
+	       t)
+	      ((member (file-name-nondirectory (plist-get f2 :file))
+		       '("series" "rainy-day" "films"))
+	       nil)
+	      (t
 	       (time-less-p (plist-get f1 :time)
-			    (plist-get f2 :time)))))
+			    (plist-get f2 :time))))))
 	  ((eq order 'year)
 	   (lambda (f1 f2)
 	     (< (or (plist-get f1 :year) 0)
@@ -1088,10 +1096,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (read-string "Prefix to collapse: "
 		       (movie-prefix (file-name-nondirectory
 				      (movie-current-file)))))
-	 (dir (expand-file-name prefix default-directory)))
+	 (dir (expand-file-name prefix
+				(expand-file-name "series" default-directory))))
     (unless (file-exists-p dir)
       (setq dir (downcase dir))
-      (make-directory dir))
+      (unless (file-exists-p dir)
+	(make-directory dir)))
     (dolist (file (directory-files default-directory t))
       (when (and (not (equal (file-name-nondirectory file) "."))
 		 (not (equal (file-name-nondirectory file) ".."))
@@ -1893,7 +1903,9 @@ output directories whose names match REGEXP."
 		"--input-ipc-server=/tmp/mpv-socket"
 		"--fullscreen"
 		"--stop-screensaver"
-		"/dev/video0"))
+		;;"/dev/video0"
+		"/tv/tmp/output.mkv"
+		))
 
 (defun movie-clear-screenshots ()
   "Delete the screenshots from the screenshots directory."
