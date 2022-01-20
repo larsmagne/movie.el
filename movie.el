@@ -139,9 +139,9 @@ Otherwise, goto the start of the buffer."
   (goto-char (point-min))
   (let (file)
     (while (and (not (eobp))
-		(or (not (setq file (getf (get-text-property
-					   (point) 'movie-data)
-					  :file)))
+		(or (not (setq file (cl-getf (get-text-property
+					      (point) 'movie-data)
+					     :file)))
 		    (not (equal movie (file-name-nondirectory file)))))
       (forward-line 1))))
 
@@ -325,7 +325,6 @@ Otherwise, goto the start of the buffer."
     (let ((subtitles (length (plist-get file :subtitles)))
 	  (dir-data (and (plist-get file :directoryp)
 			 (movie-biggest-file-data file)))
-	  (system-name (system-name))
 	  (dvdp (string-match "^/dvd/" (plist-get file :file))))
       (when (eq order 'year)
 	(insert (format "%04d " (or (plist-get file :year) 9999))))
@@ -357,7 +356,7 @@ Otherwise, goto the start of the buffer."
 	       (movie-format-length (plist-get file :length))
 	     (round
 	      (/ (or (plist-get file :size) -1) 1024 1024)))))
-	(if (member system-name '("sandy" "quimbies"))
+	(if (member (system-name) '("sandy" "quimbies"))
 	    (propertize " " 'display `(space :align-to (300)))
 	  "")
 	(if (and (not (plist-get file :seen))
@@ -499,7 +498,7 @@ Otherwise, goto the start of the buffer."
     (string-join (reverse (split-string director)) " ")))
 
 (defun movie-rip-time (elem)
-  (let ((files (directory-files (getf elem :file) t "[.]mkv$")))
+  (let ((files (directory-files (cl-getf elem :file) t "[.]mkv$")))
     (if (not files)
 	0
       (float-time (file-attribute-modification-time
@@ -664,7 +663,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (interactive)
   (let ((options nil)
 	(command nil)
-	(player (copy-list movie-player)))
+	(player (cl-copy-list movie-player)))
     (while (let ((char (read-char "")))
 	     (cond
 	      ((eq char ?n)
@@ -692,7 +691,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (call-interactively command))))
 
 (defun movie-add-vf (options vf)
-  (setq options (copy-list options))
+  (setq options (cl-copy-list options))
   (let ((old (member "--vf" options)))
     (if (not old)
 	(append options (list "--vf" vf))
@@ -701,7 +700,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       options)))
 
 (defun movie-remove-vf (options vf)
-  (setq options (copy-list options))
+  (setq options (cl-copy-list options))
   (let ((old (member "-vf" options)))
     (if (not old)
 	options
@@ -791,6 +790,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (when (> total-width this-width)
       this-width)))
 
+(defvar movie-rotate-audio nil)
+
 (defun movie-start-mpv (command &optional wait)
   (interactive (list (append movie-player
 			     (list (read-file-name "File: ")))))
@@ -836,7 +837,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
        (get-buffer-process (current-buffer))
        (format "%s\n" (json-encode command))))))
 
-(defun movie-anim-state nil)
+(defvar movie-anim-state nil)
 
 (defun movie-record-gif ()
   "Start/stop recording an animation."
@@ -972,7 +973,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (interactive (list (movie-current-file)))
   (when (and (file-directory-p file)
 	     (not (string-match "/torrent" file))
-	     (not (= (length (directory-files-recursively file ".") 2))))
+	     (not (= (length (directory-files-recursively file ".")) 2)))
     (error "Directory not empty"))
   (beginning-of-line)
   (let ((new-name (expand-file-name
@@ -998,7 +999,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (unless elem
       (error "No further deletions scheduled"))
     (unless (file-exists-p (plist-get elem :deletion-name))
-      (error "File %s has been completely deleted"))
+      (error "File %s has been completely deleted"
+	     (plist-get elem :deletion-name)))
     (beginning-of-line)
     (insert (plist-get elem :display))
     (forward-line -1)
@@ -1042,7 +1044,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-current-file ()
   (save-excursion
     (beginning-of-line)
-    (getf (get-text-property (point) 'movie-data) :file)))
+    (cl-getf (get-text-property (point) 'movie-data) :file)))
 
 (defun movie-rescan (&optional order)
   "Update the current buffer."
@@ -1081,8 +1083,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-compare-lines (order d1 d2)
   (if (eq order 'alphabetical)
-      (string< (downcase (getf d1 :file)) (downcase (getf d2 :file)))
-    (time-less-p (getf d1 :time) (getf d2 :time))))
+      (string< (downcase (cl-getf d1 :file)) (downcase (cl-getf d2 :file)))
+    (time-less-p (cl-getf d1 :time) (cl-getf d2 :time))))
 
 (defun movie-rename (to)
   "Rename the current movie."
@@ -1289,6 +1291,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (interactive)
   (call-process "eject" nil nil nil "/dev/dvd"))
 
+(require 'server)
+
 (defun movie-start-server ()
   (setq server-use-tcp t
 	server-host (system-name)
@@ -1373,10 +1377,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-interlaced-p (file)
   (let ((stats (movie-get-stats (file-name-directory file))))
     (if stats
-	(getf (cdr (assoc (file-name-nondirectory file)
-			  (cdr
-			   (assq 'tracks stats))))
-	      :interlaced)
+	(cl-getf (cdr (assoc (file-name-nondirectory file)
+			     (cdr
+			      (assq 'tracks stats))))
+		 :interlaced)
       (and (not (member (system-name) '("mouse" "sandy")))
 	   (with-temp-buffer
 	     (call-process "mediainfo" nil t nil file)
@@ -1481,7 +1485,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (dolist (file (directory-files sub t))
 	(when (file-regular-p file)
 	  (let ((leaf (file-name-nondirectory file)))
-	    (unless (search part leaf)
+	    (unless (cl-search part leaf)
 	      (setq leaf (concat part " " leaf)))
 	    (let ((new (expand-file-name leaf default-directory)))
 	      (unless (file-exists-p new)
@@ -1826,7 +1830,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (let ((tracks (cdr (assq 'tracks (movie-get-stats dir)))))
     (and (> (length tracks) 5)
 	 (> (cl-loop for track in tracks
-		     when (> (getf (cdr track) :length) (* 20 60))
+		     when (> (cl-getf (cdr track) :length) (* 20 60))
 		     sum 1)
 	    5))))
 
@@ -1861,6 +1865,8 @@ output directories whose names match REGEXP."
 	    (push (expand-file-name file dir) files)))))
     (nconc result (nreverse files))))
 
+(defvar movie-marks nil)
+
 (defun movie-mark (movie)
   "Toggle the mark on the current movie."
   (interactive (list (movie-current-file)))
@@ -1872,7 +1878,7 @@ output directories whose names match REGEXP."
     (save-excursion
       (beginning-of-line)
       (forward-char 1)
-      (delete-forward-char 1)
+      (delete-char 1)
       (insert mark))
     (forward-line 1)))
 
@@ -1938,9 +1944,6 @@ output directories whose names match REGEXP."
   (with-temp-buffer
     (insert-file-contents (expand-file-name "stats" dir))
     (when (re-search-forward "^Genre: ")
-      (save-restriction
-	(match-beginning 0)
-	(line-end-position))
       (when (search-forward ",eclipse")
 	(replace-match "" t t))
       (write-region (point-min) (point-max) (expand-file-name "stats" dir)))))
@@ -2000,12 +2003,12 @@ output directories whose names match REGEXP."
 
 (defun movie--find-closest-fps (fps)
   (cdar
-   (stable-sort
+   (cl-stable-sort
     (cl-loop for cand in movie-valid-fps
-	     append (loop for mult from 1 upto 1
-			  collect (cons (abs (- (* mult fps)
-						(string-to-number cand)))
-					cand)))
+	     append (cl-loop for mult from 1 upto 1
+			     collect (cons (abs (- (* mult fps)
+						   (string-to-number cand)))
+					   cand)))
     (lambda (f1 f2)
       (< (car f1) (car f2))))))
 
