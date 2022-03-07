@@ -325,7 +325,8 @@ Otherwise, goto the start of the buffer."
     (let ((subtitles (length (plist-get file :subtitles)))
 	  (dir-data (and (plist-get file :directoryp)
 			 (movie-biggest-file-data file)))
-	  (dvdp (string-match "^/dvd/" (plist-get file :file))))
+	  (dvdp (string-match "^/dvd/\\|^/flash/movies\\|^/mnt/dos"
+			      (plist-get file :file))))
       (when (eq order 'year)
 	(insert (format "%04d " (or (plist-get file :year) 9999))))
       (when (eq order 'rip-time)
