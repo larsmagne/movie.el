@@ -31,6 +31,7 @@
 (require 'mkv)
 (require 'subr-x)
 (require 'touchgrid)
+(require 'url-cache)
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
@@ -367,14 +368,17 @@ Otherwise, goto the start of the buffer."
 	  (propertize
 	   (file-name-nondirectory (plist-get file :file))
 	   'face `(:foreground
-		   ,(let ((seen (car (last (plist-get file :seen) 2)))
+		   ,(let ((seen (float (car (last (plist-get file :seen) 2))))
 			  (length (plist-get file :length)))
-		      (if (or (plist-get file :directoryp)
-			      (> (/ seen length) 0.9))
-			  (if (plist-get file :directoryp)
-			      "#5050f0"
-			    "#000080")
-			"#800000")))))
+		      (cond
+		       ((plist-get file :directoryp)
+			"#5050f0")
+		       ((> (/ seen length) 0.9)
+			"#000080")
+		       ((> (/ seen length) 0.1)
+			"#008000")
+		       (t
+			"#800000"))))))
 	(if (plist-get file :directoryp)
 	    (if dvdp
 		""
@@ -676,6 +680,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	      ((eq char ?w)
 	       (setq options
 		     (movie-add-vf options "crop=700:300")))
+	      ((eq char ?r)
+	       (setq options (append options (list "--vf=colormatrix=bt.709"))))
 	      ((eq char ?i)
 	       (setq options (append options (list movie-deinterlace-switch))))
 	      ((eq char ?a)
@@ -1101,6 +1107,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 				      (movie-current-file)))))
 	 (dir (expand-file-name prefix
 				(expand-file-name "series" default-directory))))
+    (when (zerop (length prefix))
+      (error "No prefix"))
     (unless (file-exists-p dir)
       (setq dir (downcase dir))
       (unless (file-exists-p dir)
@@ -1378,11 +1386,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-interlaced-p (file)
   (let ((stats (movie-get-stats (file-name-directory file))))
     (if stats
-	(cl-getf (cdr (assoc (file-name-nondirectory file)
-			     (cdr
-			      (assq 'tracks stats))))
-		 :interlaced)
-      (and (not (member (system-name) '("mouse" "sandy")))
+	(getf (cdr (assoc (file-name-nondirectory file)
+			  (cdr
+			   (assq 'tracks stats))))
+	      :interlaced)
+      (and (not (member (system-name) '("mouse" "sandy" "quimbies")))
 	   (with-temp-buffer
 	     (call-process "mediainfo" nil t nil file)
 	     (goto-char (point-min))
@@ -1559,6 +1567,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		 (not (member "best" genre))
 		 (not (member "Amazon" genre))
 		 (not (member "comics" genre))
+		 (not (member "eclipse" genre))
 		 )
 	(let ((file (plist-get movie :file)))
 	  (make-symbolic-link
@@ -1867,6 +1876,12 @@ output directories whose names match REGEXP."
     (nconc result (nreverse files))))
 
 (defvar movie-marks nil)
+
+(defun movie-symlink-marks-to-dir (dir)
+  (dolist (file movie-marks)
+    (let ((target (expand-file-name (file-name-nondirectory file) dir)))
+      (unless (file-exists-p target)
+	(make-symbolic-link file target)))))
 
 (defun movie-mark (movie)
   "Toggle the mark on the current movie."
