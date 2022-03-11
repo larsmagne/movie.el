@@ -376,7 +376,7 @@ Otherwise, goto the start of the buffer."
 		       ((> (/ seen length) 0.9)
 			"#000080")
 		       ((> (/ seen length) 0.1)
-			"#008000")
+			"#808000")
 		       (t
 			"#800000"))))))
 	(if (plist-get file :directoryp)
