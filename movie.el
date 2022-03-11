@@ -368,12 +368,12 @@ Otherwise, goto the start of the buffer."
 	  (propertize
 	   (file-name-nondirectory (plist-get file :file))
 	   'face `(:foreground
-		   ,(let ((seen (float (car (last (plist-get file :seen) 2))))
+		   ,(let ((seen (car (last (plist-get file :seen) 2)))
 			  (length (plist-get file :length)))
 		      (cond
 		       ((plist-get file :directoryp)
 			"#5050f0")
-		       ((> (/ seen length) 0.9)
+		       ((> (/ (setq seen (float seen)) length) 0.9)
 			"#000080")
 		       ((> (/ seen length) 0.1)
 			"#808000")
