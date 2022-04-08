@@ -978,6 +978,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-delete-file (file)
   "Delete the file under point."
   (interactive (list (movie-current-file)))
+  (unless file
+    (error "No file on the current line"))
+  (unless (file-exists-p file)
+    (error "%s doesn't exist" file))
   (when (and (file-directory-p file)
 	     (not (string-match "/torrent" file))
 	     (not (= (length (directory-files-recursively file ".")) 2)))
