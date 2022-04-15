@@ -681,7 +681,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (setq options
 		     (movie-add-vf options "crop=700:300")))
 	      ((eq char ?r)
-	       (setq options (append options (list "--vf=colormatrix=bt.709"))))
+	       (setq options (append options (list "--vf=format=colormatrix=bt.709"))))
 	      ((eq char ?i)
 	       (setq options (append options (list movie-deinterlace-switch))))
 	      ((eq char ?a)
@@ -2001,7 +2001,9 @@ output directories whose names match REGEXP."
       "Set frame rate: "
       '((?5 "50")
 	(?6 "59.94")
-	(?4 "23.98"))))))
+	(?4 "23.98")
+	(?2 "25.00")
+	(?9 "29.97"))))))
   (call-process "xrandr" nil nil nil
 		"--output" "HDMI-0"
 		"--mode" "3840x2160"
