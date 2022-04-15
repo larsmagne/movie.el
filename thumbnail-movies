@@ -16,7 +16,9 @@ sub Wanted {
 	    print "Thumbing $file\n";
 	    system("ffmpeg", "-i", $file,
 		   "-r", "30", "-f", "image2",
-		   "-frames:v", "1", "-ss", "20", "image%03d.png");
+		   "-frames:v", "1", "-ss", "20",
+		   "-vf", "thumbnail,scale=iw*sar:ih",
+		   "image%03d.png");
 	    system("convert", "-scale", "300x",
 		   "/tmp/image001.png", "$file.png");
 	    unlink("/tmp/image001.png");
