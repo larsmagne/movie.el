@@ -1649,20 +1649,24 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
      (replace-regexp-in-string
       "^0+\\|^ +\\| $" "" string))))
 
-(defun movie-last-seen (file)
-  "Say when the series under point was last seen."
-  (interactive (list (movie-current-file)))
-  (let ((data (movie-parse-description (file-name-nondirectory file)))
-	(case-fold-search t)
-	results)
+(defun movie-last-seen (file &optional edit)
+  "Say when the series under point was last seen.
+If EDIT (the prefix), allow editing"
+  (interactive (list (movie-current-file)
+		     current-prefix-arg))
+  (let* ((data (movie-parse-description (file-name-nondirectory file)))
+	 (name (plist-get data :name))
+	 (case-fold-search t)
+	 results)
     (unless data
       (error "Couldn't parse %s" (file-name-nondirectory file)))
+    (when edit
+      (setq name (read-string "Look for: " name)))
     (with-temp-buffer
       (insert-file-contents movie-positions-file)
       (goto-char (point-max))
       (while (and (re-search-backward
-		   (replace-regexp-in-string "[^a-z0-9]" ".*"
-					     (downcase (plist-get data :name)))
+		   (replace-regexp-in-string "[^a-z0-9]" ".*" name)
 		   nil t)
 		  (< (length results) 5))
 	(beginning-of-line)
@@ -1673,7 +1677,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		       (> length 400))
 	      (push show results))))))
     (if (not results)
-	(message "Not seen %s" (plist-get data :name))
+	(message "Not seen %s" name)
       (message "%s" (mapconcat 'identity (nreverse results) "\n")))))
 
 (defun movie-title (movie)
