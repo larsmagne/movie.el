@@ -809,33 +809,52 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (setq command (append command (list "-geometry"
 					  (format "+%d+0" start-x))))))
   (setq movie-rotate-audio 0)
-  (with-current-buffer (get-buffer-create "*mplayer*")
-    (when (file-exists-p "/tmp/mpv-socket")
-      (delete-file "/tmp/mpv-socket"))
-    (let ((mpv (apply 'start-process "mpv" (current-buffer) command))
-	  (count 0)
-	  (request-id 0)
-	  socket)
-      (while (not (file-exists-p "/tmp/mpv-socket"))
-	(sleep-for 0.1))
-      (setq socket
-	    (make-network-process
-	     :name "talk-mpv"
-	     :service "/tmp/mpv-socket"
-	     :buffer (get-buffer-create "*mpv*")
-	     :family 'local))
-      (movie-send-mpv-command '((command . ["observe_property" 1 "time-pos"])))
-      (when wait
-	(while (process-live-p mpv)
-	  ;; Once a second, get the bitrate.
-	  (when (zerop (mod (cl-incf count) 10))
-	    (movie-send-mpv-command
-	     '((command . ["get_property" "video-bitrate"])
-	       (request_id . ,(cl-incf request-id)))))
+  (with-environment-variables (("MPV_VERBOSE" "1"))
+    (with-current-buffer (get-buffer-create "*mplayer*")
+      (when (file-exists-p "/tmp/mpv-socket")
+	(delete-file "/tmp/mpv-socket"))
+      (let ((mpv (apply 'start-process "mpv" (current-buffer) command))
+	    (count 0)
+	    (request-id 0)
+	    socket)
+	(while (not (file-exists-p "/tmp/mpv-socket"))
 	  (sleep-for 0.1))
-	(when movie-after-play-callback
-	  (with-current-buffer (get-buffer-create "*mpv*")
-	    (funcall movie-after-play-callback)))))))
+	(setq socket
+	      (make-network-process
+	       :name "talk-mpv"
+	       :service "/tmp/mpv-socket"
+	       :buffer (get-buffer-create "*mpv*")
+	       :family 'local
+	       :filter 'movie--mpv-filter))
+	(movie-send-mpv-command '((command . ["observe_property" 1 "time-pos"])))
+	(when wait
+	  (while (process-live-p mpv)
+	    ;; Once a second, get the bitrate.
+	    (when (and nil (zerop (mod (cl-incf count) 10)))
+	      (movie-send-mpv-command
+	       `((command . ["get_property" "time-pos"])
+		 (request_id . ,(cl-incf request-id)))))
+	    (sleep-for 0.1))
+	  (when movie-after-play-callback
+	    (with-current-buffer (get-buffer-create "*mpv*")
+	      (funcall movie-after-play-callback))))))))
+
+(defvar movie--ignore-next-restart nil)
+
+(defun movie--mpv-filter (process string)
+  (let ((buffer (process-buffer process)))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+	(goto-char (point-max))
+	(insert string))
+      (when (string-match-p "playback-restart" string)
+	(when t
+	  (if movie--ignore-next-restart
+	      (setq movie--ignore-next-restart nil)
+	    (setq movie--ignore-next-restart t)
+	    (movie-send-mpv-command
+	     `((command . ["frame-back-step"])
+	       (request_id . 2)))))))))
 
 (defun movie-send-mpv-command (command)
   (with-current-buffer "*mpv*"
@@ -887,7 +906,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   
 (defun movie-play-1 (player)
   (setq movie-current-audio-device 0
-	movie-anim-state nil)
+	movie-anim-state nil
+	movie--ignore-next-restart nil)
   (let ((skip (movie-find-position
 	       (or movie-file-id
 		   (car (last player))))))
@@ -919,6 +939,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (when (file-symlink-p "~/.movie-current-file")
 	(delete-file "~/.movie-current-file"))
       (make-symbolic-link path "~/.movie-current-file")
+      (let ((stats (expand-file-name "stats" (file-name-directory path))))
+	(when (file-exists-p stats)
+	  (copy-file stats (expand-file-name "stats" dir) t)))
       (with-temp-buffer
 	(insert path)
 	(let ((coding-system-for-write 'utf-8))
