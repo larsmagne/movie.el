@@ -848,7 +848,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(goto-char (point-max))
 	(insert string))
       (when (string-match-p "playback-restart" string)
-	(when t
+	(when (equal (system-name) "quimbies")
 	  (if movie--ignore-next-restart
 	      (setq movie--ignore-next-restart nil)
 	    (setq movie--ignore-next-restart t)
