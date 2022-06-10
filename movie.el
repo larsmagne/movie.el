@@ -671,23 +671,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(player (cl-copy-list movie-player)))
     (while (let ((char (read-char "")))
 	     (cond
-	      ((eq char ?n)
-	       (setq options
-		     (movie-add-vf options "dctdnoiz=15")))
-	      ((eq char ?c)
-	       (setq options
-		     (movie-add-vf options "crop=700:420")))
-	      ((eq char ?w)
-	       (setq options
-		     (movie-add-vf options "crop=700:300")))
 	      ((eq char ?r)
 	       (setq options (append options (list "--vf=format=colormatrix=bt.709"))))
-	      ((eq char ?i)
-	       (setq options (append options (list movie-deinterlace-switch))))
+	      ((eq char ?g)
+	       (setq options (append options (list "--vo=gpu-next"))))
 	      ((eq char ?a)
 	       (setq options (append options (list "--aspect=16:9"))))
-	      ((eq char ?I)
-	       (setq options (delete movie-deinterlace-switch options)))
 	      (t
 	       (setq command
 		     (lookup-key movie-mode-map (format "%c" char)))
