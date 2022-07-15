@@ -934,8 +934,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (with-temp-buffer
 	(insert path)
 	(let ((coding-system-for-write 'utf-8))
-	  (write-region (point-min) (point-max) "/tv/data/current-file"
-			nil 'silent)))
+	  (when (file-exists-p "/tv/data/")
+	    (write-region (point-min) (point-max) "/tv/data/current-file"
+			  nil 'silent))))
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
 	(erase-buffer)
