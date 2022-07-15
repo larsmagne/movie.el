@@ -523,11 +523,7 @@ Otherwise, goto the start of the buffer."
     (define-key map [del] 'movie-delete-file)
     (define-key map [backspace] 'movie-delete-file)
     (define-key map [deletechar] 'movie-delete-file)
-    (define-key map "d" 'movie-play-dvd)
-    (define-key map "D" 'movie-play-whole-dvd)
-    (define-key map "W" 'movie-play-total-dvd)
     (define-key map "V" 'movie-play-vlc-dvd)
-    (define-key map "f" 'movie-play-next-vob)
     (define-key map "F" 'movie-play-current-vob)
     (define-key map "T" 'movie-change-rate)
     (define-key map "r" 'movie-change-rate-current)
@@ -557,6 +553,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "/" 'movie-limit)
     (define-key map "m" 'movie-list-parts)
     (define-key map "O" 'movie-list-by-rip-time)
+    (define-key map "o" 'movie-change-orientation)
     (define-key map "Y" 'movie-list-by-year)
     (define-key map "L" 'movie-list-by-director)
     (define-key map "e" 'movie-goto-last-series)
@@ -1151,32 +1148,6 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		   part
 		 (concat "." part))))))))
 
-(defun movie-play-dvd (number)
-  "Play 'large' VOB NUMBER from the DVD."
-  (interactive "p")
-  (let ((data (movie-dvd-data)))
-    (if (> number (length (cadr data)))
-	(message "Just %d big files" (length (cadr data)))
-      (movie-play-dvd-vob data number))))
-
-(defun movie-play-next-vob ()
-  "Play the next 'large' VOB on the DVD."
-  (interactive)
-  (let* ((data (movie-dvd-data))
-	 (number (movie-find-previous-vob data)))
-    (if (not number)
-	(message "No previous VOBs for %s" (car data))
-      (movie-play-dvd (1+ number)))))
-
-(defun movie-play-current-vob ()
-  "Play current 'large' VOB on the DVD."
-  (interactive)
-  (let* ((data (movie-dvd-data))
-	 (number (movie-find-previous-vob data)))
-    (if (not number)
-	(message "No previous VOBs for %s" (car data))
-      (movie-play-dvd number))))
-
 (defun movie-find-previous-vob (data)
   (with-temp-buffer
     (insert-file-contents movie-positions-file)
@@ -1403,10 +1374,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-interlaced-p (file)
   (let ((stats (movie-get-stats (file-name-directory file))))
     (if stats
-	(getf (cdr (assoc (file-name-nondirectory file)
-			  (cdr
-			   (assq 'tracks stats))))
-	      :interlaced)
+	(cl-getf (cdr (assoc (file-name-nondirectory file)
+			     (cdr
+			      (assq 'tracks stats))))
+		 :interlaced)
       (and (not (member (system-name) '("mouse" "sandy" "quimbies")))
 	   (with-temp-buffer
 	     (call-process "mediainfo" nil t nil file)
@@ -2050,6 +2021,18 @@ output directories whose names match REGEXP."
 					   cand)))
     (lambda (f1 f2)
       (< (car f1) (car f2))))))
+
+(defvar movie--rotation nil)
+
+(defun movie-change-orientation ()
+  (interactive)
+  (setq movie--rotation (not movie--rotation))
+  (call-process "xrandr" nil nil nil
+		"--output" "eDP-1"
+		"--rotate"
+		(if (not movie--rotation)
+		    "normal"
+		  "inverted")))
 
 (provide 'movie)
 
