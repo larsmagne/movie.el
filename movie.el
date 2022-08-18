@@ -463,12 +463,6 @@ Otherwise, goto the start of the buffer."
 	      ((plist-get f1 :recorded)
 	       (string< (plist-get f1 :recorded)
 			(plist-get f2 :recorded)))
-	      ((member (file-name-nondirectory (plist-get f1 :file))
-		       '("series" "rainy-day" "films"))
-	       t)
-	      ((member (file-name-nondirectory (plist-get f2 :file))
-		       '("series" "rainy-day" "films"))
-	       nil)
 	      (t
 	       (time-less-p (plist-get f1 :time)
 			    (plist-get f2 :time))))))
@@ -1119,8 +1113,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (read-string "Prefix to collapse: "
 		       (movie-prefix (file-name-nondirectory
 				      (movie-current-file)))))
-	 (dir (expand-file-name prefix
-				(expand-file-name "series" default-directory))))
+	 (dir (expand-file-name prefix "/tv/future/series/")))
     (when (zerop (length prefix))
       (error "No prefix"))
     (unless (file-exists-p dir)
