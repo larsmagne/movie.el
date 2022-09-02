@@ -534,6 +534,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "C" 'movie-clear-screenshots)
     (define-key map "l" 'movie-last-seen)
     (define-key map "-" 'movie-collapse)
+    (define-key map "M" 'movie-move-to-movie)
     (define-key map "i" 'movie-mark-as-seen)
     (define-key map "A" 'movie-add-stats-query)
     (define-key map "a" 'movie-add-stats)
@@ -1128,6 +1129,16 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 				""))
 		  (downcase prefix)))
 	(rename-file file (concat dir "/"))))))
+
+(defun movie-move-to-movie (from)
+  "Move film to future/films."
+  (interactive (list (movie-current-file)))
+  (rename-file from (expand-file-name (file-name-nondirectory from)
+				      "/tv/future/films/"))
+  (let ((png (concat from ".png")))
+    (when (file-exists-p png)
+      (rename-file png (expand-file-name (file-name-nondirectory png)
+					 "/tv/future/films/")))))
 
 (defun movie-prefix (file)
   (let ((prefix ""))
