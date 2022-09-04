@@ -714,13 +714,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (list
    (concat (file-name-sans-extension file) ".srt")
    (concat (file-name-sans-extension file) "_eng.srt")
-   (car
-    (directory-files 
-     (file-name-concat
-      (file-name-directory file)
-      "Subs"
-      (file-name-sans-extension (file-name-nondirectory file)))
-     t "English.*srt$"))))
+   (let ((dir (file-name-concat
+	       (file-name-directory file)
+	       "Subs"
+	       (file-name-sans-extension (file-name-nondirectory file)))))
+     (and (file-exists-p dir)
+	  (car (directory-files dir t "English.*srt$"))))))
 
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
