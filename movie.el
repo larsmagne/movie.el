@@ -710,15 +710,24 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (interactive (list (movie-current-file)))
   (movie-play-1 (append movie-player movie-high-volume (list file))))
 
+(defun movie-possible-subs (file)
+  (list
+   (concat (file-name-sans-extension file) ".srt")
+   (concat (file-name-sans-extension file) "_eng.srt")
+   (car
+    (directory-files 
+     (file-name-concat
+      (file-name-directory file)
+      "Subs"
+      (file-name-sans-extension (file-name-nondirectory file)))
+     t "English.*srt$"))))
+
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
-  (let ((subs (list
-	       (concat (replace-regexp-in-string "[.][^.]+\\'" "" file) ".srt")
-	       (concat (replace-regexp-in-string
-			"[.][^.]+\\'" "" file) "_eng.srt")))
+  (let ((subs (movie-possible-subs file))
 	(movie-player (copy-sequence movie-player)))
     (dolist (sub subs)
-      (when (file-exists-p sub)
+      (when (and sub (file-exists-p sub))
 	(setq movie-player (append movie-player
 				   (list (concat "--sub-file=" sub))))))
     (if (movie-interlaced-p file)
@@ -1139,6 +1148,16 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (when (file-exists-p png)
       (rename-file png (expand-file-name (file-name-nondirectory png)
 					 "/tv/future/films/")))))
+
+(defun movie-remove-seen ()
+  "Delete the lines of seen movies."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (while (not (eobp))
+      (if (get-text-property (1- (line-end-position)) 'face)
+	  (delete-region (point) (line-beginning-position 2))
+	(forward-line 1)))))
 
 (defun movie-prefix (file)
   (let ((prefix ""))
