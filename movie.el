@@ -997,6 +997,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (error "%s doesn't exist" file))
   (when (and (file-directory-p file)
 	     (not (string-match "/torrent" file))
+	     (not (string-match "/future/series" file))
+	     (not (string-match "/future/films" file))
 	     (not (= (length (directory-files-recursively file ".")) 2)))
     (error "Directory not empty"))
   (beginning-of-line)
