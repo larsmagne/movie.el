@@ -1109,8 +1109,13 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-compare-lines (order d1 d2)
   (if (eq order 'alphabetical)
-      (string< (downcase (cl-getf d1 :file)) (downcase (cl-getf d2 :file)))
+      (string< (movie--canonicalize-name (cl-getf d1 :file))
+	       (movie--canonicalize-name (cl-getf d2 :file)))
     (time-less-p (cl-getf d1 :time) (cl-getf d2 :time))))
+
+(defun movie--canonicalize-name (name)
+  (replace-regexp-in-string "\\`\\(the\\|an\\|a\\)[. ]" ""
+			    (downcase (file-name-nondirectory name))))
 
 (defun movie-rename (to)
   "Rename the current movie."
