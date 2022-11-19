@@ -1933,7 +1933,8 @@ output directories whose names match REGEXP."
   (load "~/src/movie.el/movie.el")
   (load "~/.emacs")
   (message "Reloaded")
-  (movie-reload-play))
+  ;;(movie-reload-play)
+  )
 
 (defun movie-reload-play ()
   (call-process "/usr/src/mpv/build/mpv" nil (get-buffer-create "*foo*") nil
