@@ -714,6 +714,10 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (list
    (concat (file-name-sans-extension file) ".srt")
    (concat (file-name-sans-extension file) "_eng.srt")
+   (file-name-concat
+    (file-name-directory file)
+    "Subs"
+    (concat (file-name-sans-extension (file-name-nondirectory file)) ".sub"))
    (let ((dir (file-name-concat
 	       (file-name-directory file)
 	       "Subs"
