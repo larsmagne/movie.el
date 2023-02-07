@@ -1,4 +1,4 @@
-;;; movie.el --- playing movies
+;;; movie.el --- playing movies  -*- lexical-binding: t; -*-
 ;; Copyright (C) 2004-2018 Lars Magne Ingebrigtsen
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -32,6 +32,7 @@
 (require 'subr-x)
 (require 'touchgrid)
 (require 'url-cache)
+(require 'vtable)
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
@@ -140,8 +141,7 @@ Otherwise, goto the start of the buffer."
   (goto-char (point-min))
   (let (file)
     (while (and (not (eobp))
-		(or (not (setq file (cl-getf (get-text-property
-					      (point) 'movie-data)
+		(or (not (setq file (cl-getf (vtable-current-object)
 					     :file)))
 		    (not (equal movie (file-name-nondirectory file)))))
       (forward-line 1))))
@@ -193,6 +193,7 @@ Otherwise, goto the start of the buffer."
 	      (null (assoc "Seen-Version" stats))
 	      (assoc "Year" stats)
 	      (not (member "eclipse" (split-string genres ",")))
+	      (not (member "best22" (split-string genres ",")))
 	      (not (member "tv" (split-string genres ",")))))))
     ((equal match "mostly-seen")
      (lambda (stats)
@@ -322,109 +323,91 @@ Otherwise, goto the start of the buffer."
   (when (not order)
     (setq order 'chronological))
   (setq files (movie-sort files order))
-  (dolist (file files)
-    (let ((subtitles (length (plist-get file :subtitles)))
-	  (dir-data (and (plist-get file :directoryp)
-			 (movie-biggest-file-data file)))
-	  (dvdp (string-match "^/dvd/\\|^/flash/movies\\|^/mnt/dos"
-			      (plist-get file :file))))
-      (when (eq order 'year)
-	(insert (format "%04d " (or (plist-get file :year) 9999))))
-      (when (eq order 'rip-time)
-	(insert (format-time-string " %Y-%m-%d " (movie-rip-time file))))
-      (when (eq order 'country)
-	(insert (format "%04d %02s " (or (plist-get file :year) 9999)
-			(or (plist-get file :country) ""))))
-      (when (or (eq order 'director)
-		(eq order 'rip-time))
-	(insert (format "%4s %-20s "
-			(plist-get file :year)
-			(let ((string (or (plist-get file :director) "")))
-			  (if (> (length string) 20)
-			      (substring string 0 20)
-			    string)))))
-      (insert
-       (format
-	(if dvdp "%s%s%s%s\n"
-	  " %5s%s %s%s\n")
-	(if (plist-get file :directoryp)
-	    (if dvdp
-		""
-	      (format "%s"
-		      (round (/ (or (car dir-data) -1) 1024 1024))))
-	  (format
-	   " %s"
-	   (if (plist-get file :length)
-	       (movie-format-length (plist-get file :length))
-	     (round
-	      (/ (or (plist-get file :size) -1) 1024 1024)))))
-	(if (member (system-name) '("sandy" "quimbies"))
-	    (propertize " " 'display `(space :align-to (300)))
-	  "")
-	(if (and (not (plist-get file :seen))
-		 (not (plist-get file :mostly-seen))
-		 (not (plist-get file :seen-version)))
-	    (file-name-nondirectory (plist-get file :file))
-	  (propertize
-	   (file-name-nondirectory (plist-get file :file))
-	   'face `(:foreground
-		   ,(let ((seen (car (last (plist-get file :seen) 2)))
-			  (length (plist-get file :length)))
-		      (cond
-		       ((plist-get file :directoryp)
-			"#5050f0")
-		       ((> (/ (setq seen (float seen)) length) 0.9)
-			"#000080")
-		       ((> (/ seen length) 0.1)
-			"#808000")
-		       (t
-			"#800000"))))))
-	(if (plist-get file :directoryp)
-	    (if dvdp
-		""
-	      (format "/ (%s)"
-		      (round (/ (or (car dir-data) -1) 1024 1024))))
-	  (format
-	   " (%s)%s%s"
-	   (if (plist-get file :length)
-	       (movie-format-length (plist-get file :length))
-	     (round
-	      (/ (or (plist-get file :size) -1) 1024 1024)))
-	   (if (> (length (plist-get file :audio-tracks)) 1)
-	       (format " %s" (mapconcat
-			      'identity
-			      (plist-get file :audio-tracks) ","))
-	     "")
-	   (if (> subtitles 0)
-	       (format " %s sub%s" subtitles
-		       (if (= subtitles 1) "" "s"))
-	     "")))))
-      (save-excursion
-	(forward-line -1)
-	(when (> (or (plist-get file :length) 0)
-		 (* 30 60))
-	  (add-face-text-property (line-beginning-position)
-				  (1+ (line-end-position))
-				  '(:background "#006000")
-				  t))
-	(let ((png (or (plist-get file :image)
-		       (concat (plist-get file :file) ".png"))))
+  (make-vtable
+   :columns `((:name "Thumb" :width "300px"
+		     :displayer
+		     ,(lambda (image max-width _table)
+			(propertize "*" 'display
+				    (append image
+					    `(:max-width ,max-width)))))
+	      (:name "Time")
+	      (:name "Info")
+	      (:name "Director" :max-width 20)
+	      (:name "Title"))
+   :objects files
+   :actions '("RET" (lambda (object)
+		      (movie-find-file (plist-get object :file))))
+   :separator-width 1
+   :getter
+   (lambda (object column table)
+     (let ((dvdp (and (string-match "^/dvd/\\|^/flash/movies\\|^/mnt/dos"
+				    (plist-get object :file))
+		      (plist-get object :directoryp))))
+       (pcase (vtable-column table column)
+	 ("Thumb"
+	  (let ((png (or (plist-get object :image)
+			 (concat (plist-get object :file) ".png"))))
+	    (cond
+	     ((file-exists-p png)
+	      (create-image png nil nil
+			    :scale movie-image-scale))
+	     ((and (plist-get object :directoryp)
+		   (file-exists-p
+		    (setq png
+			  (format "%s.png"
+				  (cdr (movie-biggest-file-data object))))))
+	      (create-image png nil nil
+			    :scale movie-image-scale))
+	     (t
+	      (create-image "~/src/movie.el/empty.png" nil nil
+			    :scale movie-image-scale)))))
+	 ("Time"
 	  (cond
-	   ((file-exists-p png)
-	    (insert-image (create-image png (movie--image-type) nil
-					:scale movie-image-scale)))
-	   ((and (plist-get file :directoryp)
-		 (file-exists-p (format "%s.png" (cdr dir-data))))
-	    (insert-image (create-image (format "%s.png" (cdr dir-data))
-					(movie--image-type) nil
-					:scale movie-image-scale)))
+	   ((or dvdp (memq order '(year director rip-time country)))
+	    (or (plist-get object :year) 9999))
+	   ((plist-get object :directoryp)
+	    (round (/ (or (car (movie-biggest-file-data object)) -1)
+		      1024 1024)))
+	   ((plist-get object :length)
+	    (let ((str (movie-format-length (plist-get object :length))))
+	      (if (> (plist-get object :length) (* 30 60))
+		  (propertize str 'face '(:background "#006000"))
+		str)))
 	   (t
-	    (insert-image (create-image "~/src/movie.el/empty.png"
-					(movie--image-type) nil
-					:scale movie-image-scale)))))
-	(beginning-of-line)
-	(put-text-property (point) (1+ (point)) 'movie-data file)))))
-			   
+	    (/ (or (plist-get object :size) -1) 1024 1024))))
+	 ("Info"
+	  (cond
+	   ((eq order 'rip-time)
+	    (format-time-string " %Y-%m-%d " (movie-rip-time object)))
+	   ((eq order 'country)
+	    (plist-get object :country))
+	   ((plist-get object :subtitles)
+	    (format "%s sub%s" (length (plist-get object :subtitles))
+		    (if (= (length (plist-get object :subtitles)) 1)
+			""
+		      "s")))
+	   (t "")))
+	 ("Director"
+	  (plist-get object :director))
+	 ("Title"
+	  (if (and (not (plist-get object :seen))
+		   (not (plist-get object :mostly-seen))
+		   (not (plist-get object :seen-version)))
+	      (file-name-nondirectory (plist-get object :file))
+	    (propertize
+	     (file-name-nondirectory (plist-get object :file))
+	     'face `(:foreground
+		     ,(let ((seen (car (last (plist-get object :seen) 2)))
+			    (length (plist-get object :length)))
+			(cond
+			 ((plist-get object :directoryp)
+			  "#5050f0")
+			 ((> (/ (setq seen (float seen)) length) 0.9)
+			  "#000080")
+			 ((> (/ seen length) 0.1)
+			  "#808000")
+			 (t
+			  "#800000"))))))))))))
 
 (defun movie-format-length (seconds)
   (if (< seconds (* 60 60))
@@ -628,8 +611,7 @@ This function works recursively.  Files are returned in \"depth first\"
 and alphabetical order.
 If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (let ((result nil)
-	(files nil)
-	(directories nil))
+	(files nil))
     (dolist (file (directory-files dir t))
       (let ((leaf (file-name-nondirectory file)))
 	(unless (member leaf '("." ".."))
@@ -808,18 +790,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(delete-file "/tmp/mpv-socket"))
       (let ((mpv (apply 'start-process "mpv" (current-buffer) command))
 	    (count 0)
-	    (request-id 0)
-	    socket)
+	    (request-id 0))
 	(while (not (file-exists-p "/tmp/mpv-socket"))
 	  (sleep-for 0.1))
-	(setq socket
-	      (make-network-process
-	       :name "talk-mpv"
-	       :service "/tmp/mpv-socket"
-	       :buffer (get-buffer-create "*mpv*")
-	       :family 'local
-	       :filter 'movie--mpv-filter))
-	(movie-send-mpv-command '((command . ["observe_property" 1 "time-pos"])))
+	(make-network-process
+	 :name "talk-mpv"
+	 :service "/tmp/mpv-socket"
+	 :buffer (get-buffer-create "*mpv*")
+	 :family 'local
+	 :filter 'movie--mpv-filter)
+	(movie-send-mpv-command
+	 '((command . ["observe_property" 1 "time-pos"])))
 	(when wait
 	  (while (process-live-p mpv)
 	    ;; Once a second, get the bitrate.
@@ -1075,7 +1056,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-current-file ()
   (save-excursion
     (beginning-of-line)
-    (cl-getf (get-text-property (point) 'movie-data) :file)))
+    (cl-getf (vtable-current-object) :file)))
 
 (defun movie-rescan (&optional order)
   "Update the current buffer."
@@ -1099,18 +1080,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (if (eq movie-order 'alphabetical)
 	(setq movie-order 'chronological)
       (setq movie-order 'alphabetical))
-    (goto-char (point-min))
-    (sort-subr nil 'forward-line 'end-of-line nil nil
-	       (lambda (l1 l2)
-		 (movie-compare-lines
-		  movie-order
-		  (get-text-property (car l1) 'movie-data)
-		  (get-text-property (car l2) 'movie-data))))
-    (if (not current)
-	(goto-char (point-max))
-      (goto-char (point-min))
-      (search-forward (file-name-nondirectory current) nil t)
-      (beginning-of-line))))
+    (setf (vtable-objects (vtable-current-table))
+	  (sort (vtable-objects (vtable-current-table))
+		(lambda (o1 o2)
+		  (movie-compare-lines movie-order o1 o2))))
+    (vtable-revert-command)))
 
 (defun movie-compare-lines (order d1 d2)
   (if (eq order 'alphabetical)
@@ -1353,7 +1327,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
      (sort
       (nreverse
        (cl-loop while (not (eobp))
-		for (format code resolution note) =
+		for (format _code resolution _note) =
 		(split-string (buffer-substring (point) (line-end-position)))
 		collect (cons format resolution)
 		do (forward-line 1)))
@@ -1587,6 +1561,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 				    (plist-get movie :director)))
 		 (not (member "tv" genre))
 		 (not (member "best" genre))
+		 (not (member "best22" genre))
 		 (not (member "Amazon" genre))
 		 (not (member "comics" genre))
 		 (not (member "eclipse" genre))
@@ -1606,7 +1581,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (cl-loop for film in (directory-files "/tv/unseen" t)
 		   unless (string-match "^[.]" (file-name-nondirectory film))
 		   collect (cons (movie-film-size film) film))
-	  (lambda (f1 f2)
+	  (lambda (_f1 _f2)
 	    (< (random) (random))))))
     (cl-loop for (s . link) in films
 	     do (cl-decf size (/ (float s) 1000 1000 1000))
