@@ -117,6 +117,12 @@
     (setq-local mode-line-misc-info (movie-buffer-identification directory))
     (unless movie-deletion-process
       (setq movie-deletion-process (run-at-time 1 10 'movie-delete-scheduled)))
+    (let ((sleeve (expand-file-name "sleeve.jpg" directory)))
+      (when (file-exists-p sleeve)
+	(goto-char (point-max))
+	(insert "\n\n")
+	(insert-image (create-image sleeve nil nil
+				    :max-height (/ (window-pixel-height) 2)))))
     (movie-goto-logical-line)))
 
 (defun movie-goto-logical-line ()
@@ -325,8 +331,8 @@ Otherwise, goto the start of the buffer."
   (setq files (movie-sort files order))
   (make-vtable
    :columns `((:name "Poster"
-		     :width (format "%dpx"
-				    (* 130 (image-compute-scaling-factor)))
+		     :width ,(format "%dpx"
+				     (* 130 (image-compute-scaling-factor)))
 		     :displayer
 		     ,(lambda (image max-width _table)
 			(propertize "*" 'display
@@ -355,7 +361,7 @@ Otherwise, goto the start of the buffer."
 		(create-image sleeve nil nil 
 			      :scale movie-image-scale
 			      :max-height
-			      (* 100 (image-compute-scaling-factor)))
+			      (truncate (* 100 (image-compute-scaling-factor))))
 	      (let ((png (or (plist-get object :image)
 			     (concat (plist-get object :file) ".png"))))
 		(cond
