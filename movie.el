@@ -324,7 +324,9 @@ Otherwise, goto the start of the buffer."
     (setq order 'chronological))
   (setq files (movie-sort files order))
   (make-vtable
-   :columns `((:name "Thumb" :width "300px"
+   :columns `((:name "Poster"
+		     :width (format "%dpx"
+				    (* 130 (image-compute-scaling-factor)))
 		     :displayer
 		     ,(lambda (image max-width _table)
 			(propertize "*" 'display
@@ -344,23 +346,32 @@ Otherwise, goto the start of the buffer."
 				    (plist-get object :file))
 		      (plist-get object :directoryp))))
        (pcase (vtable-column table column)
-	 ("Thumb"
-	  (let ((png (or (plist-get object :image)
-			 (concat (plist-get object :file) ".png"))))
-	    (cond
-	     ((file-exists-p png)
-	      (create-image png nil nil
-			    :scale movie-image-scale))
-	     ((and (plist-get object :directoryp)
-		   (file-exists-p
-		    (setq png
-			  (format "%s.png"
-				  (cdr (movie-biggest-file-data object))))))
-	      (create-image png nil nil
-			    :scale movie-image-scale))
-	     (t
-	      (create-image "~/src/movie.el/empty.png" nil nil
-			    :scale movie-image-scale)))))
+	 ("Poster"
+	  (let ((sleeve (and dvdp
+			     (expand-file-name
+			      "sleeve.jpg" (plist-get object :file)))))
+	    (if (and sleeve
+		     (file-exists-p sleeve))
+		(create-image sleeve nil nil 
+			      :scale movie-image-scale
+			      :max-height
+			      (* 100 (image-compute-scaling-factor)))
+	      (let ((png (or (plist-get object :image)
+			     (concat (plist-get object :file) ".png"))))
+		(cond
+		 ((file-exists-p png)
+		  (create-image png nil nil
+				:scale movie-image-scale))
+		 ((and (plist-get object :directoryp)
+		       (file-exists-p
+			(setq png
+			      (format "%s.png"
+				      (cdr (movie-biggest-file-data object))))))
+		  (create-image png nil nil
+				:scale movie-image-scale))
+		 (t
+		  (create-image "~/src/movie.el/empty.png" nil nil
+				:scale movie-image-scale)))))))
 	 ("Time"
 	  (cond
 	   ((or dvdp (memq order '(year director rip-time country)))
@@ -1076,15 +1087,14 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-toggle-sort ()
   "Toggle sorting by time."
   (interactive)
-  (let ((current (movie-current-file)))
-    (if (eq movie-order 'alphabetical)
-	(setq movie-order 'chronological)
-      (setq movie-order 'alphabetical))
-    (setf (vtable-objects (vtable-current-table))
-	  (sort (vtable-objects (vtable-current-table))
-		(lambda (o1 o2)
-		  (movie-compare-lines movie-order o1 o2))))
-    (vtable-revert-command)))
+  (if (eq movie-order 'alphabetical)
+      (setq movie-order 'chronological)
+    (setq movie-order 'alphabetical))
+  (setf (vtable-objects (vtable-current-table))
+	(sort (vtable-objects (vtable-current-table))
+	      (lambda (o1 o2)
+		(movie-compare-lines movie-order o1 o2))))
+  (vtable-revert-command))
 
 (defun movie-compare-lines (order d1 d2)
   (if (eq order 'alphabetical)
@@ -2043,6 +2053,20 @@ output directories whose names match REGEXP."
 		(if (not movie--rotation)
 		    "normal"
 		  "inverted")))
+
+(defun movie--get-poster (id sleeve)
+  (when-let ((image (imdb-get-image-and-country id nil t)))
+    (with-temp-buffer
+      (set-buffer-multibyte nil)
+      (insert image)
+      (write-region (point-min) (point-max) sleeve))))
+
+(defun movie-get-missing-posters ()
+  (dolist (dir (directory-files "/dvd/" t))
+    (let ((sleeve (expand-file-name "sleeve.jpg" dir)))
+      (unless (file-exists-p sleeve)
+	(when-let ((id (cdr (assoc "IMDB" (movie-get-stats dir)))))
+	  (movie--get-poster id sleeve))))))
 
 (provide 'movie)
 
