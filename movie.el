@@ -342,7 +342,7 @@ Otherwise, goto the start of the buffer."
 	      (:name "Info")
 	      (:name "Director" :max-width 20)
 	      (:name "Title"))
-   :face (if (member (system-name) "quimbies" "sparky")
+   :face (if (member (system-name) '("quimbies" "sparky"))
 	     'default
 	   'variable-pitch)
    :keymap (define-keymap
@@ -1462,7 +1462,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 			 `(list :interlaced t))
 		     ,@(when position
 			 `(:seen (,(string-to-number position)
-				  "19700101T010000")))))))))))
+				  "19700101T010000"))))))))))
+  (movie--get-missing-posters directory))
 
 (defun movie-parse-stats (directory)
   (with-temp-buffer
@@ -2077,10 +2078,13 @@ output directories whose names match REGEXP."
 
 (defun movie-get-missing-posters ()
   (dolist (dir (directory-files "/dvd/" t))
-    (let ((sleeve (expand-file-name "sleeve.jpg" dir)))
-      (unless (file-exists-p sleeve)
-	(when-let ((id (cdr (assoc "IMDB" (movie-get-stats dir)))))
-	  (movie--get-poster id sleeve))))))
+    (movie--get-missing-posters dir)))
+
+(defun movie--get-missing-posters (dir)
+  (let ((sleeve (expand-file-name "sleeve.jpg" dir)))
+    (unless (file-exists-p sleeve)
+      (when-let ((id (cdr (assoc "IMDB" (movie-get-stats dir)))))
+	(movie--get-poster id sleeve)))))
 
 (provide 'movie)
 
