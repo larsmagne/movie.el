@@ -332,7 +332,7 @@ Otherwise, goto the start of the buffer."
   (make-vtable
    :columns `((:name "Poster"
 		     :width ,(format "%dpx"
-				     (* 130 (image-compute-scaling-factor)))
+				     (* 100 (image-compute-scaling-factor)))
 		     :displayer
 		     ,(lambda (image max-width _table)
 			(propertize "*" 'display
@@ -342,6 +342,11 @@ Otherwise, goto the start of the buffer."
 	      (:name "Info")
 	      (:name "Director" :max-width 20)
 	      (:name "Title"))
+   :face (if (member (system-name) "quimbies" "sparky")
+	     'default
+	   'variable-pitch)
+   :keymap (define-keymap
+             "g" #'movie-rescan)
    :objects files
    :actions '("RET" (lambda (object)
 		      (movie-find-file (plist-get object :file))))
@@ -358,21 +363,23 @@ Otherwise, goto the start of the buffer."
 			      "sleeve.jpg" (plist-get object :file)))))
 	    (if (and sleeve
 		     (file-exists-p sleeve))
-		(create-image sleeve nil nil 
-			      :scale movie-image-scale
-			      :max-height
-			      (truncate (* 100 (image-compute-scaling-factor))))
+		(create-image
+		 sleeve nil nil 
+		 :scale movie-image-scale
+		 :max-height
+		 (truncate (* 80 (image-compute-scaling-factor))))
 	      (let ((png (or (plist-get object :image)
 			     (concat (plist-get object :file) ".png"))))
 		(cond
 		 ((file-exists-p png)
 		  (create-image png nil nil
 				:scale movie-image-scale))
-		 ((and (plist-get object :directoryp)
-		       (file-exists-p
-			(setq png
-			      (format "%s.png"
-				      (cdr (movie-biggest-file-data object))))))
+		 ((and
+		   (plist-get object :directoryp)
+		   (file-exists-p
+		    (setq png
+			  (format "%s.png"
+				  (cdr (movie-biggest-file-data object))))))
 		  (create-image png nil nil
 				:scale movie-image-scale))
 		 (t
@@ -1930,6 +1937,7 @@ output directories whose names match REGEXP."
   (load "~/.emacs")
   (message "Reloaded")
   ;;(movie-reload-play)
+  ;;(raise-frame)
   )
 
 (defun movie-reload-play ()
