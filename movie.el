@@ -110,7 +110,8 @@
     (movie-mode)
     (setq movie-order order
 	  movie-limit match)
-    (movie-generate-buffer files order)
+    (when files
+      (movie-generate-buffer files order))
     (unless (string-match "/$" directory)
       (setq directory (concat directory "/")))
     (setq default-directory directory)
