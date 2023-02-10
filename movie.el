@@ -110,11 +110,11 @@
     (movie-mode)
     (setq movie-order order
 	  movie-limit match)
-    (when files
-      (movie-generate-buffer files order))
     (unless (string-match "/$" directory)
       (setq directory (concat directory "/")))
     (setq default-directory directory)
+    (when files
+      (movie-generate-buffer files order))
     (setq-local mode-line-misc-info (movie-buffer-identification directory))
     (unless movie-deletion-process
       (setq movie-deletion-process (run-at-time 1 10 'movie-delete-scheduled)))
@@ -331,14 +331,17 @@ Otherwise, goto the start of the buffer."
     (setq order 'chronological))
   (setq files (movie-sort files order))
   (make-vtable
-   :columns `((:name "Poster"
-		     :width ,(format "%dpx"
-				     (* 100 (image-compute-scaling-factor)))
-		     :displayer
-		     ,(lambda (image max-width _table)
-			(propertize "*" 'display
-				    (append image
-					    `(:max-width ,max-width)))))
+   :columns `(( :name "Poster"
+		:max-width ,(format "%dpx"
+				    (* (if (equal default-directory "/dvd/")
+					   70
+					 100)
+				       (image-compute-scaling-factor)))
+		:displayer
+		,(lambda (image max-width _table)
+		   (propertize "*" 'display
+			       (append image
+				       `(:max-width ,max-width)))))
 	      (:name "Time")
 	      (:name "Info")
 	      (:name "Director" :max-width 20)
@@ -1101,6 +1104,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-toggle-sort ()
   "Toggle sorting by time."
   (interactive)
+  (while (and (not (vtable-current-table))
+	      (not (bobp)))
+    (forward-line -1))
   (if (eq movie-order 'alphabetical)
       (setq movie-order 'chronological)
     (setq movie-order 'alphabetical))
