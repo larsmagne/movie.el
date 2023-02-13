@@ -679,11 +679,6 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (setq options (append options (list "--vo=gpu-next"))))
 	      ((eq char ?a)
 	       (setq options (append options (list "--aspect=16:9"))))
-	      ((eq char ?h)
-	       (setq options (append options
-				     (list "--hdr-compute-peak=no"
-					   "--tone-mapping=reinhard"
-					   "--tone-mapping-param=0.6"))))
 	      (t
 	       (setq command
 		     (lookup-key movie-mode-map (format "%c" char)))
