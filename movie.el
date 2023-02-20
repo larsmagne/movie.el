@@ -267,11 +267,10 @@ Otherwise, goto the start of the buffer."
 		      :recorded ,(cdr (assoc "Recorded" (movie-get-stats file)))
 		      :size ,(nth 7 atts)
 		      :directoryp ,(nth 0 atts)
-		      :year ,(let ((year (cdr (assoc "Year"
-						     (movie-get-stats file)))))
-			       (if year
-				   (string-to-number year)
-				 9999))
+		      :year ,(when-let ((year (cdr
+					       (assoc "Year" (movie-get-stats
+							      file)))))
+			       (string-to-number year))
 		      :genre ,(cdr (assoc "Genre" (movie-get-stats file)))
 		      :title ,(cdr (assoc "Title" (movie-get-stats file)))
 		      :imdb ,(cdr (assoc "IMDB" (movie-get-stats file)))
@@ -392,7 +391,7 @@ Otherwise, goto the start of the buffer."
 	 ("Time"
 	  (cond
 	   ((or dvdp (memq order '(year director rip-time country)))
-	    (or (plist-get object :year) 9999))
+	    (or (plist-get object :year) ""))
 	   ((plist-get object :directoryp)
 	    (round (/ (or (car (movie-biggest-file-data object)) -1)
 		      1024 1024)))
@@ -479,8 +478,8 @@ Otherwise, goto the start of the buffer."
 			    (plist-get f2 :time))))))
 	  ((eq order 'year)
 	   (lambda (f1 f2)
-	     (< (or (plist-get f1 :year) 0)
-		(or (plist-get f2 :year) 0))))
+	     (< (or (plist-get f1 :year) 9999)
+		(or (plist-get f2 :year) 9999))))
 	  ((eq order 'rip-time)
 	   (lambda (f1 f2)
 	     (< (movie-rip-time f1)
@@ -679,6 +678,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       (setq options (append options (list "--vo=gpu-next"))))
 	      ((eq char ?a)
 	       (setq options (append options (list "--aspect=16:9"))))
+	      ((eq char ?h)
+	       (setq options (append options
+				     (list "--hdr-compute-peak=no"
+					   "--tone-mapping=reinhard"
+					   "--tone-mapping-param=0.6"))))
 	      (t
 	       (setq command
 		     (lookup-key movie-mode-map (format "%c" char)))
