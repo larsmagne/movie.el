@@ -356,7 +356,7 @@ Otherwise, goto the start of the buffer."
    :separator-width 1
    :getter
    (lambda (object column table)
-     (let ((dvdp (and (string-match "^/dvd/\\|^/flash/movies\\|^/mnt/dos"
+     (let ((dvdp (and (string-match "^/dvd/\\|^/flash/movies\\|^/mnt/dos\\|/home/larsi/dvd"
 				    (plist-get object :file))
 		      (plist-get object :directoryp))))
        (pcase (vtable-column table column)
