@@ -332,7 +332,7 @@ Otherwise, goto the start of the buffer."
   (make-vtable
    :columns `(( :name "Poster"
 		:max-width ,(format "%dpx"
-				    (* (if (equal default-directory "/dvd/")
+				    (* (if (string-match "/dvd/" default-directory)
 					   70
 					 100)
 				       (image-compute-scaling-factor)))
@@ -370,7 +370,7 @@ Otherwise, goto the start of the buffer."
 		 sleeve nil nil 
 		 :scale movie-image-scale
 		 :max-height
-		 (truncate (* 80 (image-compute-scaling-factor))))
+		 (truncate (* 50 (image-compute-scaling-factor))))
 	      (let ((png (or (plist-get object :image)
 			     (concat (plist-get object :file) ".png"))))
 		(cond
