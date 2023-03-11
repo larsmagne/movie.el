@@ -318,13 +318,6 @@ Otherwise, goto the start of the buffer."
     (car (sort files (lambda (f1 f2)
 		       (> (car f1) (car f2)))))))
 
-(defun movie--image-type ()
-  (if (or (and (fboundp 'image-transforms-p)
-	       (image-transforms-p))
-	  (not (fboundp 'imagemagick-types)))
-      nil
-    'imagemagick))
-
 (defun movie-generate-buffer (files &optional order)
   (when (not order)
     (setq order 'chronological))
