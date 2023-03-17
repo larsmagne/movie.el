@@ -527,6 +527,7 @@ Otherwise, goto the start of the buffer."
     ;;(define-key map "T" 'movie-thumbnails)
     (define-key map "q" 'bury-buffer)
     (define-key map "k" 'movie-browse)
+    (define-key map "j" 'movie-jump-to-directory)
     (define-key map "c" 'movie-play-cropped)
     (define-key map "x" 'movie-prefixed-action)
     (define-key map "h" 'movie-play-high-volume)
@@ -888,20 +889,22 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     result))
 
 (defconst movie-audio-devices
-  '("alsa/plughw:CARD=J75,DEV=0"	; Headphones
-    "alsa/plughw:CARD=NVidia,DEV=7"	; TV
-    "alsa/plughw:CARD=PCH,DEV=0")) ; Speakers
+  '(("alsa/plughw:CARD=J75,DEV=0" "0.250")	; Headphones
+    ("alsa/plughw:CARD=NVidia,DEV=7" "0")	; TV
+    ("alsa/plughw:CARD=PCH,DEV=0" "0.250"))) ; Speakers
 
 (defvar movie-current-audio-device 0)
 
 (defun movie-rotate-audio ()
   "Change the audio output."
   (interactive)
-  (movie-send-mpv-command
-   `((command . ["set_property" "audio-device"
-		 ,(elt movie-audio-devices
-		       (mod (cl-incf movie-current-audio-device)
-			    (length movie-audio-devices)))]))))
+  (let ((elem (elt movie-audio-devices
+		   (mod (cl-incf movie-current-audio-device)
+			(length movie-audio-devices)))))
+    (movie-send-mpv-command
+     `((command . ["set_property" "audio-device" ,(car elem)])))
+    (movie-send-mpv-command
+     `((command . ["set_property" "audio-delay" ,(cadr elem)])))))
   
 (defun movie-play-1 (player)
   (setq movie-current-audio-device 0
@@ -2089,6 +2092,22 @@ output directories whose names match REGEXP."
     (unless (file-exists-p sleeve)
       (when-let ((id (cdr (assoc "IMDB" (movie-get-stats dir)))))
 	(movie--get-poster id sleeve)))))
+
+(defun movie-jump-to-directory (dir)
+  (interactive
+   (list
+    (cadr
+     (read-multiple-choice
+      "Jump to dir: "
+      '((?b "/tv/Buffy/")
+	(?d "/dvd/")
+	(?t "/tv/torrent/")
+	(?s "/tv/Series/")
+	(?i "/tv/future/films/")
+	(?r "/tv/future/rainy-day/")
+	(?f "/tv/future/series/")
+	(?j "/tv/Fishing With John/"))))))
+  (movie-browse dir))
 
 (provide 'movie)
 
