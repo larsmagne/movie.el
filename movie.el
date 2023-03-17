@@ -401,11 +401,6 @@ Otherwise, goto the start of the buffer."
 	    (format-time-string " %Y-%m-%d " (movie-rip-time object)))
 	   ((eq order 'country)
 	    (plist-get object :country))
-	   ((plist-get object :subtitles)
-	    (format "%s sub%s" (length (plist-get object :subtitles))
-		    (if (= (length (plist-get object :subtitles)) 1)
-			""
-		      "s")))
 	   (t "")))
 	 ("Director"
 	  (plist-get object :director))
