@@ -2104,8 +2104,9 @@ output directories whose names match REGEXP."
   (catch 'done
     (progn
       (cl-loop for buffer in (buffer-list)
-	       when (equal (buffer-local-value 'default-directory buffer)
-			   dir)
+	       when (with-current-buffer buffer
+		      (and (equal default-directory dir)
+			   (eq major-mode 'movie-mode)))
 	       do
 	       (switch-to-buffer buffer)
 	       (throw 'done nil))
