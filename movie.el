@@ -91,12 +91,11 @@
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
   (interactive "DDirectory: ")
-  ;; If called interactively in the /dvd directory, just display films
-  ;; that are unseen.
-  (when (and (called-interactively-p 'interactive)
-	     (null match)
-	     (equal (file-name-nondirectory
-		     (directory-file-name directory)) "dvd"))
+  ;; If called in the /dvd directory, just display films that are
+  ;; unseen.
+  (when (and (null match)
+	     (equal (file-name-nondirectory (directory-file-name directory))
+		    "dvd"))
     (setq match 
 	  (lambda (stats)
 	    (and (null (assoc "Seen" stats))
@@ -2102,7 +2101,15 @@ output directories whose names match REGEXP."
 	(?r "/tv/future/rainy-day/")
 	(?f "/tv/future/series/")
 	(?j "/tv/Fishing With John/"))))))
-  (movie-browse dir))
+  (catch 'done
+    (progn
+      (cl-loop for buffer in (buffer-list)
+	       when (equal (buffer-local-value 'default-directory buffer)
+			   dir)
+	       do
+	       (switch-to-buffer buffer)
+	       (throw 'done nil))
+      (movie-browse dir))))
 
 (provide 'movie)
 
