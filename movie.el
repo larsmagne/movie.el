@@ -186,7 +186,7 @@ Otherwise, goto the start of the buffer."
      (lambda (stats)
        (null stats)))
     ((equal match "all")
-     nil)
+     (lambda (stats) t))
     ((equal match "unseen")
      (lambda (stats)
        (and (null (assoc "Seen" stats))
@@ -353,33 +353,35 @@ Otherwise, goto the start of the buffer."
 		      (plist-get object :directoryp))))
        (pcase (vtable-column table column)
 	 ("Poster"
-	  (let ((sleeve (and dvdp
-			     (expand-file-name
-			      "sleeve.jpg" (plist-get object :file)))))
-	    (if (and sleeve
-		     (file-exists-p sleeve))
-		(create-image
-		 sleeve nil nil 
-		 :scale movie-image-scale
-		 :max-height
-		 (truncate (* 50 (image-compute-scaling-factor))))
-	      (let ((png (or (plist-get object :image)
-			     (concat (plist-get object :file) ".png"))))
-		(cond
-		 ((file-exists-p png)
-		  (create-image png nil nil
-				:scale movie-image-scale))
-		 ((and
-		   (plist-get object :directoryp)
-		   (file-exists-p
-		    (setq png
-			  (format "%s.png"
-				  (cdr (movie-biggest-file-data object))))))
-		  (create-image png nil nil
-				:scale movie-image-scale))
-		 (t
-		  (create-image "~/src/movie.el/empty.png" nil nil
-				:scale movie-image-scale)))))))
+	  (and
+	   (length< files 500)
+	   (let ((sleeve (and dvdp
+			      (expand-file-name
+			       "sleeve.jpg" (plist-get object :file)))))
+	     (if (and sleeve
+		      (file-exists-p sleeve))
+		 (create-image
+		  sleeve nil nil 
+		  :scale movie-image-scale
+		  :max-height
+		  (truncate (* 50 (image-compute-scaling-factor))))
+	       (let ((png (or (plist-get object :image)
+			      (concat (plist-get object :file) ".png"))))
+		 (cond
+		  ((file-exists-p png)
+		   (create-image png nil nil
+				 :scale movie-image-scale))
+		  ((and
+		    (plist-get object :directoryp)
+		    (file-exists-p
+		     (setq png
+			   (format "%s.png"
+				   (cdr (movie-biggest-file-data object))))))
+		   (create-image png nil nil
+				 :scale movie-image-scale))
+		  (t
+		   (create-image "~/src/movie.el/empty.png" nil nil
+				 :scale movie-image-scale))))))))
 	 ("Time"
 	  (cond
 	   ((or dvdp (memq order '(year director rip-time country)))
