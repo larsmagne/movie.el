@@ -531,6 +531,9 @@ Otherwise, goto the start of the buffer."
     (define-key map "t" 'movie-find-torrent)
     (define-key map "s" 'movie-toggle-sort)
     (define-key map "R" 'movie-reload)
+    (define-key map [touchscreen-begin] 'ignore)
+    (define-key map [touchscreen-end] 'movie-set-touch-point)
+    (define-key map [touchscreen-update] 'ignore)
     (define-key map "C" 'movie-clear-screenshots)
     (define-key map "l" 'movie-last-seen)
     (define-key map "-" 'movie-collapse)
@@ -2113,6 +2116,10 @@ output directories whose names match REGEXP."
 	       (switch-to-buffer buffer)
 	       (throw 'done nil))
       (movie-browse dir))))
+
+(defun movie-set-touch-point (event)
+  (interactive "e")
+  (goto-char (nth 2 (plist-get  event 'touchscreen-end))))
 
 (provide 'movie)
 
