@@ -186,7 +186,7 @@ Otherwise, goto the start of the buffer."
      (lambda (stats)
        (null stats)))
     ((equal match "all")
-     (lambda (stats) t))
+     (lambda (_stats) t))
     ((equal match "unseen")
      (lambda (stats)
        (and (null (assoc "Seen" stats))
@@ -2120,6 +2120,47 @@ output directories whose names match REGEXP."
 (defun movie-set-touch-point (event)
   (interactive "e")
   (goto-char (nth 2 (plist-get  event 'touchscreen-end))))
+
+(defun movie-swap-file-names (files)
+  "Change the names of two /dvd directories."
+  (interactive (list (dired-get-marked-files nil current-prefix-arg)))
+  (when (or (not (length= files 2))
+	    (not (seq-every-p #'file-directory-p files)))
+    (error "Only mark two directories"))
+  (let ((first (split-string
+		(with-temp-buffer
+		  (insert-file-contents
+		   (expand-file-name "stats" (car files)))
+		  (buffer-string))
+		"\n\n"))
+	(second (split-string
+		 (with-temp-buffer
+		   (insert-file-contents
+		    (expand-file-name "stats" (cadr files)))
+		   (buffer-string))
+		 "\n\n")))
+    (rename-file (car files) (concat (car files) ".tmp"))
+    (rename-file (cadr files) (car files))
+    (rename-file (concat (car files) ".tmp") (cadr files))
+
+    (with-temp-buffer
+      (insert (car first) "\n\n" (cadr second))
+      (write-region (point-min) (point-max)
+		    (expand-file-name "stats" (car files))))
+		    
+    (with-temp-buffer
+      (insert (car second) "\n\n" (cadr first))
+      (write-region (point-min) (point-max)
+		    (expand-file-name "stats" (cadr files))))
+
+    (when (and (file-exists-p (expand-file-name "sleeve.jpg" (car files)))
+	       (file-exists-p (expand-file-name "sleeve.jpg" (cadr files))))
+      (rename-file (expand-file-name "sleeve.jpg" (cadr files))
+		   (expand-file-name "sleeve.jpg.tmp" (car files)))
+      (rename-file (expand-file-name "sleeve.jpg" (car files))
+		   (expand-file-name "sleeve.jpg" (cadr files)))
+      (rename-file (expand-file-name "sleeve.jpg.tmp" (car files))
+		   (expand-file-name "sleeve.jpg" (cadr files))))))
 
 (provide 'movie)
 
