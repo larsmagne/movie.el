@@ -2092,6 +2092,31 @@ output directories whose names match REGEXP."
       (when-let ((id (cdr (assoc "IMDB" (movie-get-stats dir)))))
 	(movie--get-poster id sleeve)))))
 
+(defun movie-get-missing-imdb-id-and-poster ()
+  (dolist (dir (directory-files "/dvd/" t))
+    (let ((stats (movie-get-stats dir)))
+      (when (and (assoc "Director" stats)
+		 (assoc "Title" stats)
+		 (not (assoc "IMDB" stats)))
+	(pop-to-buffer "*Query*")
+	(erase-buffer)
+	(insert-file-contents (expand-file-name "stats" dir))
+	(goto-char (point-min))
+	(sit-for 0.1)
+	(let ((imdb (imdb-query (concat (cdr (assoc "Title" stats))
+					" "
+					(cdr (assoc "Year" stats)))
+				5)))
+	  (with-temp-buffer
+	    (insert-file-contents (expand-file-name "stats" dir))
+	    (forward-line 1)
+	    (insert "IMDB: " (plist-get imdb :id) "\n")
+	    (unless (re-search-forward "^Country:" nil t)
+	      (insert "Country: " (plist-get imdb :country) "\n"))
+	    (write-region (point-min) (point-max)
+			  (expand-file-name "stats" dir)))
+	  (movie--get-missing-posters dir))))))
+
 (defun movie-jump-to-directory (dir)
   (interactive
    (list
