@@ -730,6 +730,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	       "Subs"
 	       (file-name-sans-extension (file-name-nondirectory file)))))
      (and (file-exists-p dir)
+	  (car (directory-files dir t "English.*srt$"))))
+   (let ((dir (file-name-concat
+	       (file-name-directory file)
+	       "Subs")))
+     (and (file-exists-p dir)
 	  (car (directory-files dir t "English.*srt$"))))))
 
 (defun movie-play (file)
