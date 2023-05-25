@@ -154,12 +154,14 @@ Otherwise, goto the start of the buffer."
 
 (defun movie-goto-movie (movie)
   (goto-char (point-min))
-  (let (file)
+  (let (file found)
     (while (and (not (eobp))
 		(or (not (setq file (cl-getf (vtable-current-object)
 					     :file)))
-		    (not (equal movie (file-name-nondirectory file)))))
-      (forward-line 1))))
+		    (not (setq found
+			       (equal movie (file-name-nondirectory file))))))
+      (forward-line 1))
+    found))
 
 (defun movie-get-stats (directory)
   (let ((file (expand-file-name "stats" directory))
@@ -1166,6 +1168,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		  (downcase (or (movie-prefix (file-name-nondirectory file))
 				""))
 		  (downcase prefix)))
+	(save-excursion
+	  (when (movie-goto-movie (file-name-nondirectory file))
+	    (delete-line)))
 	(rename-file file (concat dir "/"))))))
 
 (defun movie-move-to-movie (from)
