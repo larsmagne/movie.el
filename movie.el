@@ -2044,7 +2044,10 @@ output directories whose names match REGEXP."
 		"--rotate"
 		(if (not movie--rotation)
 		    "normal"
-		  "inverted")))
+		  "inverted"))
+  (call-process "gsettings" nil nil nil
+		"set" "org.gnome.settings-daemon.plugins.xsettings"
+		"overrides" "{'Gdk/WindowScalingFactor': <2>}"))
 
 (defun movie--get-poster (id sleeve)
   (when-let ((image (imdb-get-image-and-country id nil t)))
