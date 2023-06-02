@@ -90,15 +90,18 @@
 
 (defun movie-browse (directory &optional order match)
   "Browse DIRECTORY."
-  (interactive (list (read-directory-name
-		      "Directory: "
-		      (cond
-		       ((string-match "^/dvd/" default-directory)
-			"/dvd/")
-		       ((string-match "^/tv/torrent/" default-directory)
-			"/tv/torrent/")
-		       (t
-			default-directory)))))
+  (interactive (list
+		(let ((read-file-name-completion-ignore-case t))
+		  (read-directory-name
+		   "Directory: "
+		   (cond
+		    ((string-match "^/dvd/" default-directory)
+		     "/dvd/")
+		    ((string-match "^/tv/torrent/" default-directory)
+		     "/tv/torrent/")
+		    (t
+		     default-directory))
+		   nil t))))
 					  
   ;; If called in the /dvd directory, just display films that are
   ;; unseen.
