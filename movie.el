@@ -2068,9 +2068,14 @@ output directories whose names match REGEXP."
 (defun movie--fps (file)
   (with-temp-buffer
     (call-process "mediainfo" nil t nil file)
-    (goto-char (point-min))
-    (when (re-search-forward "Frame rate.*: \\([0-9.]+\\)" nil t)
-      (string-to-number (match-string 1)))))
+    (let ((scale 1))
+      (goto-char (point-min))
+      ;; Interlaced films have twice the frame rate.
+      (when (save-excursion
+	      (re-search-forward "Scan type.*: Interlaced" nil t))
+	(setq scale 2))
+      (when (re-search-forward "Frame rate.*: \\([0-9.]+\\)" nil t)
+	(* (string-to-number (match-string 1)) scale)))))
 
 (defvar movie-valid-fps
   '("59.94" "50.00" "29.97" "25.00" "23.98"))
