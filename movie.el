@@ -1068,7 +1068,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-delete-scheduled ()
   (dolist (elem movie-scheduled-deletions)
-    (when (> (- (float-time) 60)
+    ;; Delete files that were scheduled for deletion more than ten
+    ;; minutes ago.
+    (when (> (- (float-time) (* 10 60))
 	     (plist-get elem :time))
       ;; More than a minute has passed, so delete.
       (let ((file (plist-get elem :deletion-name)))
@@ -1458,7 +1460,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (insert (format "Title: %s\n" title))
       (when imdb
 	(insert (format "Director: %s\nYear: %s\nCountry: %s\nIMDB: %s\n"
-			(plist-get imdb :director)
+			(string-replace " + " ", " (plist-get imdb :director))
 			(plist-get imdb :year)
 			(plist-get imdb :country)
 			(or (plist-get imdb :id) ""))))
