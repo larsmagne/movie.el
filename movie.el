@@ -1186,7 +1186,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (let ((png (concat from ".png")))
     (when (file-exists-p png)
       (rename-file png (expand-file-name (file-name-nondirectory png)
-					 "/tv/future/films/")))))
+					 "/tv/future/films/"))))
+  (delete-line))
 
 (defun movie-remove-seen ()
   "Delete the lines of seen movies."
