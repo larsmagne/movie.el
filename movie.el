@@ -848,32 +848,18 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	 '((command . ["observe_property" 1 "time-pos"])))
 	(when wait
 	  (while (process-live-p mpv)
-	    ;; Once a second, get the bitrate.
-	    (when (and nil (zerop (mod (cl-incf count) 10)))
-	      (movie-send-mpv-command
-	       `((command . ["get_property" "time-pos"])
-		 (request_id . ,(cl-incf request-id)))))
 	    (sleep-for 0.1))
 	  (when movie-after-play-callback
 	    (with-current-buffer (get-buffer-create "*mpv*")
 	      (funcall movie-after-play-callback))))))))
-
-(defvar movie--ignore-next-restart nil)
 
 (defun movie--mpv-filter (process string)
   (let ((buffer (process-buffer process)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
 	(goto-char (point-max))
-	(insert string))
-      (when (string-match-p "playback-restart" string)
-	(when (equal (system-name) "quimbies")
-	  (if movie--ignore-next-restart
-	      (setq movie--ignore-next-restart nil)
-	    (setq movie--ignore-next-restart t)
-	    (movie-send-mpv-command
-	     `((command . ["frame-back-step"])
-	       (request_id . 2)))))))))
+	(insert string)))))
+
 
 (defun movie-send-mpv-command (command)
   (with-current-buffer "*mpv*"
@@ -927,8 +913,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   
 (defun movie-play-1 (player)
   (setq movie-current-audio-device 0
-	movie-anim-state nil
-	movie--ignore-next-restart nil)
+	movie-anim-state nil)
   (let ((skip (movie-find-position
 	       (or movie-file-id
 		   (car (last player))))))
