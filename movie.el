@@ -240,6 +240,11 @@ Otherwise, goto the start of the buffer."
   (interactive)
   (movie-browse default-directory 'rip-time movie-limit))
 
+(defun movie-list-by-size ()
+  "List the movies by size."
+  (interactive)
+  (movie-browse default-directory 'size movie-limit))
+
 (defun movie-list-by-country ()
   "List the movies by year."
   (interactive)
@@ -399,7 +404,7 @@ Otherwise, goto the start of the buffer."
 				 :scale movie-image-scale))))))))
 	 ("Time"
 	  (cond
-	   ((or dvdp (memq order '(year director rip-time country)))
+	   ((or dvdp (memq order '(year director rip-time size country)))
 	    (or (plist-get object :year) ""))
 	   ((plist-get object :directoryp)
 	    (round (/ (or (car (movie-biggest-file-data object)) -1)
@@ -415,6 +420,8 @@ Otherwise, goto the start of the buffer."
 	  (cond
 	   ((eq order 'rip-time)
 	    (format-time-string " %Y-%m-%d " (movie-rip-time object)))
+	   ((eq order 'size)
+	    (format " %d " (/ (movie--directory-size object) 1024.0 1024)))
 	   ((eq order 'country)
 	    (plist-get object :country))
 	   (t "")))
@@ -488,6 +495,10 @@ Otherwise, goto the start of the buffer."
 	   (lambda (f1 f2)
 	     (< (movie-rip-time f1)
 		(movie-rip-time f2))))
+	  ((eq order 'size)
+	   (lambda (f1 f2)
+	     (< (movie--directory-size f1)
+		(movie--directory-size f2))))
 	  ((eq order 'director)
 	   (lambda (f1 f2)
 	     (string< (movie--director-sort (plist-get f1 :director))
@@ -521,6 +532,14 @@ Otherwise, goto the start of the buffer."
 					 (float-time
 					  (file-attribute-modification-time
 					   (file-attributes f))))))))))))
+
+(defun movie--directory-size (elem)
+  (let ((files (directory-files (cl-getf elem :file) t "[.]mkv$")))
+    (if (not files)
+	0
+      (cl-reduce #'+ (mapcar (lambda (f)
+			       (file-attribute-size (file-attributes f)))
+			     files)))))
 
 (defconst movie-mode-map 
   (let ((map (make-sparse-keymap)))
@@ -833,9 +852,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (with-current-buffer (get-buffer-create "*mplayer*")
       (when (file-exists-p "/tmp/mpv-socket")
 	(delete-file "/tmp/mpv-socket"))
-      (let ((mpv (apply 'start-process "mpv" (current-buffer) command))
-	    (count 0)
-	    (request-id 0))
+      (let ((mpv (apply 'start-process "mpv" (current-buffer) command)))
 	(while (not (file-exists-p "/tmp/mpv-socket"))
 	  (sleep-for 0.1))
 	(make-network-process
@@ -1585,7 +1602,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-create-unseen-directory ()
   "Create a directory of symlinks to the unseen films for easier rsyncing."
   (interactive)
-  (dolist (file (directory-files "/tv/unseen" t))
+  (dolist (file (directory-files "/tv/links/unseen" t))
     (when (file-symlink-p file)
       (delete-file file)))
   (dolist (movie (movie-get-files "/dvd"))
@@ -1610,16 +1627,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(let ((file (plist-get movie :file)))
 	  (make-symbolic-link
 	   file (expand-file-name (file-name-nondirectory file)
-				  "/tv/unseen")))))))
+				  "/tv/links/unseen")))))))
 
 (defun movie-split-unseen (size)
-  "Move some files from /tv/unseen until we have SIZE MiB in /tv/other-unseen."
-  (dolist (file (directory-files "/tv/other-unseen" t))
+  "Move some files from /tv/links/unseen until we have SIZE MiB.
+In /tv/links/other-unseen."
+  (dolist (file (directory-files "/tv/links/other-unseen" t))
     (when (file-symlink-p file)
       (delete-file file)))
   (let ((films
 	 (sort
-	  (cl-loop for film in (directory-files "/tv/unseen" t)
+	  (cl-loop for film in (directory-files "/tv/links/unseen" t)
 		   unless (string-match "^[.]" (file-name-nondirectory film))
 		   collect (cons (movie-film-size film) film))
 	  (lambda (_f1 _f2)
@@ -1629,17 +1647,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	     while (plusp size)
 	     do (rename-file link (expand-file-name
 				   (file-name-nondirectory link)
-				   "/tv/other-unseen")))))
+				   "/tv/links/other-unseen")))))
 
 (defun movie-move-small-unseen ()
   "Create a directory of the smallest films from the unseen directory."
   (interactive)
-  (dolist (file (directory-files "/tv/smallunseen" t))
+  (dolist (file (directory-files "/tv/links/smallunseen" t))
     (when (file-symlink-p file)
       (delete-file file)))
   (let ((films
 	 (sort
-	  (cl-loop for film in (directory-files "/tv/unseen" t)
+	  (cl-loop for film in (directory-files "/tv/links/unseen" t)
 		   unless (string-match "^[.]" (file-name-nondirectory film))
 		   collect (cons (movie-film-size film) film))
 	  (lambda (f1 f2)
@@ -1652,7 +1670,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	     (cl-decf total size)
 	     (rename-file film
 			  (expand-file-name (file-name-nondirectory film)
-					    "/tv/smallunseen")))))
+					    "/tv/links/smallunseen")))))
 
 (defun movie-film-size (film)
   (cl-loop for file in (directory-files-recursively film ".")
