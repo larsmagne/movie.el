@@ -1082,7 +1082,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	  (if (file-directory-p file)
 	      (delete-directory file t)
 	    (delete-file file)
-	    (let ((png (concat (plist-get elem :name) ".png")))
+	    (let ((png (concat file ".png")))
 	      (when (file-exists-p png)
 		(delete-file png))))))
       (setq movie-scheduled-deletions
