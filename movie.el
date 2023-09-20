@@ -23,6 +23,8 @@
 
 ;;; Commentary:
 
+;; apt install mpv mediainfo
+
 ;;; Code:
 
 (require 'pvr)
