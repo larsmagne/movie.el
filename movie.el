@@ -780,10 +780,20 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (when (and sub (file-exists-p sub))
 	(setq movie-player (append movie-player
 				   (list (concat "--sub-file=" sub))))))
-    (if (movie-interlaced-p file)
-	(movie-play-1 (append movie-player (list movie-deinterlace-switch)
-			      (list file)))
-      (movie-play-1 (append movie-player (list file))))))
+    (let ((stats (movie--stats-data file)))
+      (when-let ((interlaced (plist-get stats :interlaced)))
+	(setq movie-player (append movie-player
+				   (list movie-deinterlace-switch))))
+      (when-let ((sub-index (cl-loop for i from 1
+				     for sub in (plist-get stats :subtitles)
+				     when (let ((case-fold-search t))
+					    (string-match "^eng" sub))
+				     return i)))
+	(setq movie-player (append movie-player
+				   (list (format "--sid=%s" sub-index))))))
+    (movie-play-1 (append movie-player (list file)))))
+
+(setq debug-on-quit t)
 
 (defun movie-play-simple (file)
   (interactive (list (movie-current-file)))
@@ -1372,6 +1382,23 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (+ (* (decoded-time-hour time) 60 60)
        (* (decoded-time-minute time) 60)
        (decoded-time-second time))))
+
+(defun movie--stats-data (file)
+  ;; DVD files have stats already; just return those.
+  (or (movie-get-stats (file-name-directory file))
+      ;; Otherwise, use mediainfo to synthesize them.
+      (with-temp-buffer
+	(call-process "mediainfo" nil t nil file)
+	(goto-char (point-min))
+	(list :interlaced
+	      (save-excursion
+		(re-search-forward "^Scan type.*Interlace" nil t))
+	      :subtitles
+	      (save-excursion
+		(cl-loop while (re-search-forward "\n\nText" nil t)
+			 collect (and
+				  (re-search-forward "^Language.*: \\(.*\\)")
+				  (match-string 1))))))))
 
 (defun movie-interlaced-p (file)
   (let ((stats (movie-get-stats (file-name-directory file))))
