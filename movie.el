@@ -784,15 +784,22 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (when-let ((interlaced (plist-get stats :interlaced)))
 	(setq movie-player (append movie-player
 				   (list movie-deinterlace-switch))))
-      (when-let ((sub-index (cl-loop for i from 1
-				     for sub in (plist-get stats :subtitles)
-				     when (let ((case-fold-search t))
-					    (string-match "^eng" sub))
-				     return i)))
+      (when-let ((sub-index (movie--find-best-subtitle stats)))
 	(setq movie-player (append movie-player
 				   (list (format "--sid=%s" sub-index))))))
     (movie-play-1 (append movie-player (list file)))))
 
+(defun movie--find-best-subtitle (stats)
+  (let* ((case-fold-search t)
+	 (titles
+	  (cl-loop for i from 1
+		   for sub in (plist-get stats :subtitles)
+		   when (string-match "^eng" sub)
+		   collect (cons i (if (string-match "forced" sub) 2 1)))))
+    (caar (sort titles
+		(lambda (t1 t2)
+		  (< (cdr t1) (cdr t2)))))))
+  
 (setq debug-on-quit t)
 
 (defun movie-play-simple (file)
@@ -1399,7 +1406,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	      (save-excursion
 		(cl-loop while (re-search-forward "\n\nText" nil t)
 			 collect (and
-				  (re-search-forward "^Language.*: \\(.*\\)")
+				  (re-search-forward "^Title.*: \\(.*\\)")
 				  (match-string 1))))))))
 
 (defun movie-interlaced-p (file)
