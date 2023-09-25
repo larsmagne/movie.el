@@ -1404,10 +1404,20 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		(re-search-forward "^Scan type.*Interlace" nil t))
 	      :subtitles
 	      (save-excursion
-		(cl-loop while (re-search-forward "\n\nText" nil t)
-			 collect (and
-				  (re-search-forward "^Title.*: \\(.*\\)")
-				  (match-string 1))))))))
+		(cl-loop
+		 while (re-search-forward "\n\nText" nil t)
+		 collect
+		 (let ((lang
+			(save-excursion
+			  (and
+			   (re-search-forward "^Language.*: \\(.*\\)" nil t)
+			   (match-string 1))))
+		       (title
+			(save-excursion
+			  (and
+			   (re-search-forward "^Title.*: \\(.*\\)" nil t)
+			   (match-string 1)))))
+		   (string-join (list lang title) " "))))))))
 
 (defun movie-interlaced-p (file)
   (let ((stats (movie-get-stats (file-name-directory file))))
