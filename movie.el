@@ -1220,16 +1220,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(forward-line 1)))))
 
 (defun movie-prefix (file)
-  (let ((prefix ""))
-    (dolist (part (split-string file "[.]"))
-      (if (string-match "[0-9]" part)
-	  (cl-return prefix)
-	(setq prefix
-	      (concat
-	       prefix
-	       (if (zerop (length prefix))
-		   part
-		 (concat "." part))))))))
+  (catch 'end
+    (let ((prefix ""))
+      (dolist (part (split-string file "[.]"))
+	(if (string-match "[0-9]" part)
+	    (throw 'end prefix)
+	  (setq prefix
+		(concat
+		 prefix
+		 (if (zerop (length prefix))
+		     part
+		   (concat "." part)))))))))
 
 (defun movie-find-previous-vob (data)
   (with-temp-buffer
