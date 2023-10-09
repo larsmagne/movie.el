@@ -563,6 +563,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "x" 'movie-prefixed-action)
     (define-key map "h" 'movie-play-high-volume)
     (define-key map "g" 'movie-rescan)
+    (define-key map "G" 'movie-add-genre)
     (define-key map "t" 'movie-find-torrent)
     (define-key map "s" 'movie-toggle-sort)
     (define-key map "R" 'movie-reload)
@@ -775,18 +776,24 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
   (let ((subs (movie-possible-subs file))
-	(movie-player (copy-sequence movie-player)))
+	(movie-player (copy-sequence movie-player))
+	(found-srt nil))
     (dolist (sub subs)
       (when (and sub (file-exists-p sub))
 	(setq movie-player (append movie-player
-				   (list (concat "--sub-file=" sub))))))
+				   (list (concat "--sub-file=" sub)))
+	      found-srt t)))
     (let ((stats (movie--stats-data file)))
       (when-let ((interlaced (plist-get stats :interlaced)))
 	(setq movie-player (append movie-player
 				   (list movie-deinterlace-switch))))
-      (when-let ((sub-index (movie--find-best-subtitle stats)))
+      (if-let ((sub-index (movie--find-best-subtitle stats)))
+	  (setq movie-player (append movie-player
+				     (list (format "--sid=%s" sub-index))))
+	;; If we have an SRT file, and no internal sub, then use the
+	;; srt file.  This logic isn't quite right...
 	(setq movie-player (append movie-player
-				   (list (format "--sid=%s" sub-index))))))
+				   (list "--sid=1")))))
     (movie-play-1 (append movie-player (list file)))))
 
 (defun movie--find-best-subtitle (stats)
@@ -1646,8 +1653,8 @@ In /tv/links/other-unseen."
 		   collect (cons (movie-film-size film) film))
 	  (lambda (f1 f2)
 	    (< (car f1) (car f2)))))
-	;; 200GB
-	(total (* 1000 1000 1000 205)))
+	;; 1TB
+	(total (* 1000 1000 1000 1000)))
     (cl-loop for (size . film) in films
 	     while (plusp total)
 	     do
@@ -1655,6 +1662,35 @@ In /tv/links/other-unseen."
 	     (rename-file film
 			  (expand-file-name (file-name-nondirectory film)
 					    "/tv/links/smallunseen")))))
+
+(defun movie-limit-unseen-directory ()
+  "Limit the unseem directory to a specific size by removing largest movies."
+  (interactive)
+  (let ((films
+	 (sort
+	  (cl-loop for film in (directory-files "/tv/links/unseen" t)
+		   unless (string-match "^[.]" (file-name-nondirectory film))
+		   collect (cons (movie-film-size film) film))
+	  (lambda (f1 f2)
+	    (< (car f1) (car f2)))))
+	;; 4TB
+	(total (* 1000 1000 1000 4000)))
+    ;; Peel off the smallest films.
+    (cl-loop for elem in (cl-copy-list films)
+	     for (size . film) = elem
+	     while (plusp total)
+	     do
+	     (cl-decf total size)
+	     (setq films (delq elem films)))
+    ;; Remove the rest.
+    (cl-loop for (_ . film) in films
+	     do (delete-file film))))
+
+(defun movie-create-unseen-and-small-directory ()
+  (interactive)
+  (movie-create-unseen-directory)
+  (movie-move-small-unseen)
+  (movie-limit-unseen-directory))
 
 (defun movie-film-size (film)
   (cl-loop for file in (directory-files-recursively film ".")
@@ -1989,16 +2025,17 @@ output directories whose names match REGEXP."
 		    (format "old-shot-%s" (format-time-string "%FT%T"))
 		    file)))))
 
-(defun movie-add-genre (dir)
-  (interactive (list (movie-current-file)))
+(defun movie-add-genre (dir genre)
+  (interactive (list (movie-current-file)
+		     (read-string "Genre: ")))
   (with-temp-buffer
     (insert-file-contents (expand-file-name "stats" dir))
     (if (re-search-forward "^Genre: ")
 	(progn
 	  (end-of-line)
-	  (insert ",eclipse"))
+	  (insert "," genre))
       (re-search-forward "^$")
-      (insert "Genre: eclipse\n"))
+      (insert "Genre: " genre "\n"))
     (write-region (point-min) (point-max) (expand-file-name "stats" dir))))
 
 (defun movie-remove-genre (dir)
