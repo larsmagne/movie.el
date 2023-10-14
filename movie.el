@@ -1017,6 +1017,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (movie-update-stats-position (car (last player))))
 
 (defun movie-update-mplayer-position (file)
+  (ignore-errors
+    (unless (file-exists-p movie-positions-file)
+      (unless (file-exists-p (file-name-directory movie-positions-file))
+	(make-directory (file-name-directory movie-positions-file)))
+      (write-region 1 1 movie-positions-file)))
   (with-current-buffer "*mpv*"
     (goto-char (point-max))
     (when (and (file-exists-p movie-positions-file)
