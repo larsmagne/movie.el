@@ -1146,8 +1146,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	     (not (eobp)))
     (forward-char 1))
   (let ((lines (count-lines (point-min) (point))))
-    (unless (movie-browse default-directory order movie-limit)
-      (forward-line (1- lines)))))
+    (movie-browse default-directory order movie-limit)
+    (goto-char (point-min))
+    (forward-line (1- lines))))
 
 (defun movie-toggle-sort ()
   "Toggle sorting by time."
