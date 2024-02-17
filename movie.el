@@ -520,7 +520,7 @@ Otherwise, goto the start of the buffer."
 (defun movie--director-sort (director)
   (if (zerop (length director))
       "ý"
-    (string-join (reverse (split-string director)) " ")))
+    (downcase (string-join (reverse (split-string director)) " "))))
 
 (defun movie-rip-time (elem)
   (let ((files (directory-files (cl-getf elem :file) t "[.]mkv$")))
