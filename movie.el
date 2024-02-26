@@ -687,7 +687,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   "Find torrent dir"
   (interactive)
   (movie-find-file "/tv/torrent")
-  (movie-rescan-1 'chronological)
+  (movie-rescan-1 'alphabetical)
   (goto-char (point-max)))
 
 (defun movie-play-cropped (file)
