@@ -76,6 +76,9 @@
 (defvar movie-positions-file "/tv/data/mplayer.positions"
   "Where viewing positions are stored.")
 
+(defvar movie-inhibit-positions nil
+  "If non-nil, don't use stored positons when playing files.")
+
 (defvar movie-file-id nil)
 
 (defvar movie-deletion-process nil)
@@ -702,11 +705,14 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (while (let ((char (read-char "")))
 	     (cond
 	      ((eq char ?r)
-	       (setq options (append options (list "--vf=format=colormatrix=bt.709"))))
+	       (setq options
+		     (append options (list "--vf=format=colormatrix=bt.709"))))
 	      ((eq char ?g)
 	       (setq options (append options (list "--vo=gpu-next"))))
 	      ((eq char ?a)
 	       (setq options (append options (list "--aspect=16:9"))))
+	      ((eq char ?p)
+	       (setq movie-inhibit-positions (not movie-inhibit-positions)))
 	      ((eq char ?h)
 	       (setq options (append options
 				     (list "--hdr-compute-peak=no"
@@ -952,17 +958,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
      `((command . ["set_property" "audio-device" ,(car elem)])))
     (movie-send-mpv-command
      `((command . ["set_property" "audio-delay" ,(cadr elem)])))))
-  
+
 (defun movie-play-1 (player)
   (setq movie-current-audio-device 0
 	movie-anim-state nil)
-  (let ((skip (movie-find-position
-	       (or movie-file-id
-		   (car (last player))))))
-    (when skip
-      (setq player (cons (pop player)
-			 (append (list (format "--start=%s" skip))
-				 player)))))
+  (when-let ((skip (and (not movie-inhibit-positions)
+			(movie-find-position
+			 (or movie-file-id
+			     (car (last player)))))))
+    (setq player (cons (pop player)
+		       (append (list (format "--start=%s" skip))
+			       player))))
   (if (not movie-picture-directory)
       (with-current-buffer (get-buffer-create "*mplayer*")
 	(buffer-disable-undo)
