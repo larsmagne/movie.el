@@ -782,13 +782,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
   (let ((subs (movie-possible-subs file))
-	(movie-player (copy-sequence movie-player))
-	(found-srt nil))
+	(movie-player (copy-sequence movie-player)))
     (dolist (sub subs)
       (when (and sub (file-exists-p sub))
 	(setq movie-player (append movie-player
-				   (list (concat "--sub-file=" sub)))
-	      found-srt t)))
+				   (list (concat "--sub-file=" sub))))))
     (let ((stats (movie--stats-data file)))
       (when-let ((interlaced (plist-get stats :interlaced)))
 	(setq movie-player (append movie-player
@@ -1100,22 +1098,25 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		 (plist-get elem :name))))
 
 (defun movie-delete-scheduled ()
-  (dolist (elem movie-scheduled-deletions)
-    ;; Delete files that were scheduled for deletion more than ten
-    ;; minutes ago.
-    (when (> (- (float-time) (* 10 60))
-	     (plist-get elem :time))
-      ;; More than a minute has passed, so delete.
-      (let ((file (plist-get elem :deletion-name)))
-	(when (file-exists-p file)
-	  (if (file-directory-p file)
-	      (delete-directory file t)
-	    (delete-file file))
-	  (let ((png (concat (plist-get elem :name) ".png")))
-	    (when (file-exists-p png)
-	      (delete-file png)))))
+  (let ((deleted nil))
+    (dolist (elem movie-scheduled-deletions)
+      ;; Delete files that were scheduled for deletion more than ten
+      ;; minutes ago.
+      (when (> (- (float-time) (* 10 60))
+	       (plist-get elem :time))
+	;; More than ten minutes has passed, so delete.
+	(let ((file (plist-get elem :deletion-name)))
+	  (when (file-exists-p file)
+	    (if (file-directory-p file)
+		(delete-directory file t)
+	      (delete-file file))
+	    (let ((png (concat (plist-get elem :name) ".png")))
+	      (when (file-exists-p png)
+		(delete-file png)))))
+	(push elem deleted)))
+    (dolist (elem deleted)
       (setq movie-scheduled-deletions
-	    (delete elem movie-scheduled-deletions)))))
+	    (delq elem movie-scheduled-deletions)))))
 
 (defun movie-add-stats (dir &optional no-director)
   "Add a stats file to the directory under point."
@@ -1642,7 +1643,7 @@ In /tv/links/other-unseen."
 	    (< (random) (random))))))
     (cl-loop for (s . link) in films
 	     do (cl-decf size (/ (float s) 1000 1000 1000))
-	     while (plusp size)
+	     while (cl-plusp size)
 	     do (rename-file link (expand-file-name
 				   (file-name-nondirectory link)
 				   "/tv/links/other-unseen")))))
@@ -1663,7 +1664,7 @@ In /tv/links/other-unseen."
 	;; 1TB
 	(total (* 1000 1000 1000 1000)))
     (cl-loop for (size . film) in films
-	     while (plusp total)
+	     while (cl-plusp total)
 	     do
 	     (cl-decf total size)
 	     (rename-file film
@@ -1685,7 +1686,7 @@ In /tv/links/other-unseen."
     ;; Peel off the smallest films.
     (cl-loop for elem in (cl-copy-list films)
 	     for (size . film) = elem
-	     while (plusp total)
+	     while (cl-plusp total)
 	     do
 	     (cl-decf total size)
 	     (setq films (delq elem films)))
