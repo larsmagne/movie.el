@@ -1114,6 +1114,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	    (let ((png (concat (plist-get elem :name) ".png")))
 	      (when (file-exists-p png)
 		(delete-file png)))
+	    ;; We need both of these because of the apparent process
+	    ;; that's fixing .png files with missing movie files.
 	    (let ((png (concat (plist-get elem :deletion-name) ".png")))
 	      (when (file-exists-p png)
 		(delete-file png)))))
