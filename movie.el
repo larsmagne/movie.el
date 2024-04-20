@@ -1069,11 +1069,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (let ((new-name (expand-file-name
 		   (concat ".deleted-" (file-name-nondirectory file))
 		   (file-name-directory file))))
-    (push (list :name file
-		:deletion-name new-name
-		:time (float-time)
-		:display (buffer-substring (point) (line-beginning-position 2)))
-	  movie-scheduled-deletions)
+    (push
+     (list :name file
+	   :deletion-name new-name
+	   :time (float-time)
+	   :display (buffer-substring (point) (line-beginning-position 2)))
+     movie-scheduled-deletions)
     (rename-file file new-name))
   (delete-region (point) (line-beginning-position 2))
   (when (and (not (bobp))
@@ -1111,6 +1112,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		(delete-directory file t)
 	      (delete-file file))
 	    (let ((png (concat (plist-get elem :name) ".png")))
+	      (when (file-exists-p png)
+		(delete-file png)))
+	    (let ((png (concat (plist-get elem :deletion-name) ".png")))
 	      (when (file-exists-p png)
 		(delete-file png)))))
 	(push elem deleted)))
