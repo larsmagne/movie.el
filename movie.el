@@ -812,8 +812,6 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		(lambda (t1 t2)
 		  (< (cdr t1) (cdr t2)))))))
   
-(setq debug-on-quit t)
-
 (defun movie-play-simple (file)
   (interactive (list (movie-current-file)))
   (movie-play-1 (append movie-player (list file))))
