@@ -1,5 +1,5 @@
 ;;; movie.el --- playing movies  -*- lexical-binding: t; -*-
-;; Copyright (C) 2004-2018 Lars Magne Ingebrigtsen
+;; Copyright (C) 2004-2024 Lars Magne Ingebrigtsen
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: extensions, processes
@@ -471,10 +471,13 @@ Otherwise, goto the start of the buffer."
   (movie-browse default-directory movie-order))
 
 (defun movie-sortable-name (name)
+  "Regularise the names so that \\='foo \"bar\"\\=' sorts the same as \\='foo.bar\\=' etc."
   (replace-regexp-in-string
-   "['\"]" ""
-   (replace-regexp-in-string "/\\(the\\|a\\)[ .]" "/"
-			     (downcase name))))
+   "[ .]+" "."
+   (replace-regexp-in-string
+    "['\"]" ""
+    (replace-regexp-in-string "/\\(the\\|a\\)[ .]" "/"
+			      (downcase name)))))
 
 (defun movie-sort (files order)
   (let ((predicate
