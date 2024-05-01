@@ -347,6 +347,9 @@ Otherwise, goto the start of the buffer."
     (setq order 'chronological))
   (setq files (movie-sort files order))
   (make-vtable
+   :face (if (string-match "Futura" (face-font 'default))
+	     'default
+	   'vtable)
    :columns `(( :name "Poster"
 		:max-width ,(format "%dpx"
 				    (* (if (string-match "/dvd/" default-directory)
