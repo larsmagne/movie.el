@@ -86,6 +86,9 @@
 (defvar movie-after-play-callback nil
   "Function called after MPV playback has ended.")
 
+(defvar movie-before-play-callback nil
+  "Function called before MPV playback has started.")
+
 (defun movie-holiday ()
   "Start viewing movies when not at home."
   (interactive)
@@ -886,6 +889,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (with-current-buffer (get-buffer-create "*mplayer*")
       (when (file-exists-p "/tmp/mpv-socket")
 	(delete-file "/tmp/mpv-socket"))
+      (when movie-before-play-callback
+	(with-current-buffer (get-buffer-create "*mpv*")
+	  (funcall movie-before-play-callback)))
       (let ((mpv (apply 'start-process "mpv" (current-buffer) command)))
 	(while (not (file-exists-p "/tmp/mpv-socket"))
 	  (sleep-for 0.1))
