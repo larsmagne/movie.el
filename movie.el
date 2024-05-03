@@ -350,9 +350,6 @@ Otherwise, goto the start of the buffer."
     (setq order 'chronological))
   (setq files (movie-sort files order))
   (make-vtable
-   :face (if (string-match "Futura" (face-font 'default))
-	     'default
-	   'vtable)
    :columns `(( :name "Poster"
 		:max-width ,(format "%dpx"
 				    (* (if (string-match "/dvd/" default-directory)
@@ -368,9 +365,9 @@ Otherwise, goto the start of the buffer."
 	      (:name "Info")
 	      (:name "Director" :max-width 20)
 	      (:name "Title"))
-   :face (if (member (system-name) '("quimbies" "sparky"))
+   :face (if (string-match "Futura" (face-font 'default))
 	     'default
-	   'variable-pitch)
+	   'vtable)
    :keymap (define-keymap
              "g" #'movie-rescan)
    :objects files
