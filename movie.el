@@ -43,7 +43,7 @@
 
 (defvar movie-player
   '("/usr/src/mpv/build/mpv"
-    "--audio-device=alsa/plughw:CARD=J75,DEV=0"
+    "--audio-device=alsa/hw:CARD=J65,DEV=0"
     "--vo=gpu"
     "--hwdec=vdpau"
     ;;"--vf=vdpaupp=denoise=1"
@@ -948,7 +948,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     result))
 
 (defconst movie-audio-devices
-  '(("alsa/plughw:CARD=J75,DEV=0" "0.250")	; Headphones
+  '(("alsa/hw:CARD=J65,DEV=0" "0.250")	; Headphones
     ("alsa/plughw:CARD=NVidia,DEV=7" "0")	; TV
     ("alsa/plughw:CARD=PCH,DEV=0" "0.250"))) ; Speakers
 
@@ -1680,8 +1680,8 @@ In /tv/links/other-unseen."
 		   collect (cons (movie-film-size film) film))
 	  (lambda (f1 f2)
 	    (< (car f1) (car f2)))))
-	;; 1TB
-	(total (* 1000 1000 1000 1000)))
+	;; 1.6TB
+	(total (* 1000 1000 1000 1000 1.6)))
     (cl-loop for (size . film) in films
 	     while (cl-plusp total)
 	     do
@@ -1898,17 +1898,26 @@ If EDIT (the prefix), allow editing"
 	       (make-directory new-dir)
 	       (cl-loop for file in (if (zerop (length films))
 					files
-				      (list (pop files)))
-			do (rename-file file (expand-file-name
-					      (file-name-nondirectory file)
-					      new-dir))
-			(let ((png (concat file ".png")))
-			  (when (file-exists-p png)
-			    (rename-file png
-					 (expand-file-name
-					  (file-name-nondirectory png)
-					  new-dir))))))
+				      (movie--files-until-over-gb files))
+			do
+			(progn
+			  (setq files (delete file files))
+			  (rename-file file (expand-file-name
+					     (file-name-nondirectory file)
+					     new-dir))
+			  (let ((png (concat file ".png")))
+			    (when (file-exists-p png)
+			      (rename-file png
+					   (expand-file-name
+					    (file-name-nondirectory png)
+					    new-dir)))))))
       (delete-directory dir))))
+
+(defun movie--files-until-over-gb (files)
+  (cl-loop for file in files
+	   collect file
+	   while (< (file-attribute-size (file-attributes file))
+		    (* 1000 1000 1000))))
 
 (defun movie-find-split-name (film)
   (cl-loop for dir = (expand-file-name film "/dvd")
