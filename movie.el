@@ -476,7 +476,7 @@ Otherwise, goto the start of the buffer."
 (defun movie-sortable-name (name)
   "Regularise the names so that \\='foo \"bar\"\\=' sorts the same as \\='foo.bar\\=' etc."
   (replace-regexp-in-string
-   "[ .]+" "."
+   "[ .-]+" "."
    (replace-regexp-in-string
     "['\"]" ""
     (replace-regexp-in-string "/\\(the\\|a\\)[ .]" "/"
