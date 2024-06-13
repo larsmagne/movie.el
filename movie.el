@@ -1021,7 +1021,16 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (let ((stats (expand-file-name "stats" (file-name-directory path))))
 	(when (file-exists-p stats)
 	  (copy-file stats (expand-file-name "stats" dir) t)))))
-  (movie-update-stats-position (car (last player))))
+  (movie-update-stats-position (car (last player)))
+  (movie-update-line))
+
+(defun movie-update-line ()
+  (when-let ((object (vtable-current-object))
+	     (seen (movie-find-position (plist-get object :file))))
+    (plist-put object :seen
+	       (append (plist-get object :seen)
+		       (list (string-to-number seen) "")))
+    (vtable-update-object (vtable-current-table) object object)))
 
 (defun movie-update-mplayer-position (file)
   (ignore-errors
