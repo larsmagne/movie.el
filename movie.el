@@ -1927,7 +1927,7 @@ If EDIT (the prefix), allow editing"
   (cl-loop for file in files
 	   collect file
 	   while (< (file-attribute-size (file-attributes file))
-		    (* 1000 1000 1000))))
+		    (* 3 1000 1000 1000))))
 
 (defun movie-find-split-name (film)
   (cl-loop for dir = (expand-file-name film "/dvd")
