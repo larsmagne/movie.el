@@ -1166,9 +1166,14 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (message "Made a stats file for %s" dir))
 
 (defun movie-current-file ()
-  (save-excursion
-    (beginning-of-line)
-    (cl-getf (vtable-current-object) :file)))
+  (or
+   (save-excursion
+     (beginning-of-line)
+     (cl-getf (vtable-current-object) :file))
+   (and (not (equal default-directory "/dvd/"))
+	(save-excursion
+	  (goto-char (point-min))
+	  (cl-getf (vtable-current-object) :file)))))
 
 (defun movie-rescan (&optional order)
   "Update the current buffer."
