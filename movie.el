@@ -586,6 +586,7 @@ Otherwise, goto the start of the buffer."
     (define-key map "-" 'movie-collapse)
     (define-key map "M" 'movie-move-to-movie)
     (define-key map "i" 'movie-mark-as-seen)
+    (define-key map "I" 'movie-mark-as-unseen)
     (define-key map "A" 'movie-add-stats-query)
     (define-key map "a" 'movie-add-stats)
     (define-key map "u" 'movie-undo-delete)
@@ -1611,6 +1612,25 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 			"seen")))
       (insert (format "Seen: %s\n" (format-time-string "%Y%m%dT%H%M%S"))))
     (message "Marked as seen")))
+
+(defun movie-mark-as-unseen (file)
+  "Mark the current DVD directory as unseen in the stats file."
+  (interactive (list (movie-current-file)))
+  (let ((stats (expand-file-name
+		"stats"
+		(if (file-directory-p file)
+		    file
+		  default-directory))))
+    (unless (file-exists-p stats)
+      (error "No stats file"))
+    (with-temp-file stats
+      (insert-file-contents stats)
+      (when (search-forward (concat "\n(\"" (file-name-nondirectory file) "\"")
+			    nil t)
+	(while (search-forward " :seen" (line-end-position) t)
+	  (goto-char (match-beginning 0))
+	  (kill-sexp 2)))
+      (message "Marked as unseen"))))
 
 (defun movie-update-stats-position (file)
   (let* ((dir (file-name-directory file))
