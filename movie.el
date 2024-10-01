@@ -650,16 +650,13 @@ Otherwise, goto the start of the buffer."
     (movie-play file)
     (discard-input)))
 
-(defun movie-play-best-file (file &optional no-adjust)
+(defun movie-play-best-file (file &optional _no-adjust)
   "Play the longest file in the directory/file under point.
 If NO-ADJUST (the interactive prefix), don't change the frame rate."
   (interactive (list (movie-current-file) current-prefix-arg))
   (call-process "pkill" nil nil nil "touchegg")
   (when (file-directory-p file)
     (setf file (movie-best-file file)))
-  (unless no-adjust
-    ;;(movie-change-rate-current file)
-    )
   (movie-find-file file))
 
 (defun movie-best-file (dir)
@@ -1714,7 +1711,7 @@ In /tv/links/other-unseen."
 		   unless (string-match "^[.]" (file-name-nondirectory film))
 		   collect (cons (movie-film-size film) film))
 	  (lambda (f1 f2)
-	    (< (car f1) (car f2)))))
+	    (< (movie-small-rank f1) (movie-small-rank f2)))))
 	;; 1.6TB
 	(total (* 1000 1000 1000 1000 1.6)))
     (cl-loop for (size . film) in films
@@ -1724,6 +1721,19 @@ In /tv/links/other-unseen."
 	     (rename-file film
 			  (expand-file-name (file-name-nondirectory film)
 					    "/tv/links/smallunseen")))))
+
+(defvar movie-special-small-genre nil)
+
+(defun movie-small-rank (f)
+  (let ((size (car f))
+	(file (cdr f)))
+    (or
+     (with-temp-buffer
+       (insert-file-contents (expand-file-name "stats" file))
+       (and movie-special-small-genre
+	    (re-search-forward movie-special-small-genre nil t)
+	    0)
+       size))))
 
 (defun movie-limit-unseen-directory ()
   "Limit the unseem directory to a specific size by removing largest movies."
