@@ -436,10 +436,9 @@ Otherwise, goto the start of the buffer."
 	 ("Director"
 	  (plist-get object :director))
 	 ("Title"
-	  (if (or (not (plist-get object :length))
-		  (and (not (plist-get object :seen))
-		       (not (plist-get object :mostly-seen))
-		       (not (plist-get object :seen-version))))
+	  (if (and (not (plist-get object :seen))
+		   (not (plist-get object :mostly-seen))
+		   (not (plist-get object :seen-version)))
 	      (file-name-nondirectory (plist-get object :file))
 	    (propertize
 	     (file-name-nondirectory (plist-get object :file))
@@ -583,6 +582,7 @@ Otherwise, goto the start of the buffer."
     (define-key map [touchscreen-update] 'ignore)
     (define-key map "C" 'movie-clear-screenshots)
     (define-key map "l" 'movie-last-seen)
+    (define-key map "d" 'movie-download-bigger)
     (define-key map "-" 'movie-collapse)
     (define-key map "M" 'movie-move-to-movie)
     (define-key map "i" 'movie-mark-as-seen)
@@ -1774,14 +1774,16 @@ In /tv/links/other-unseen."
 (defun movie-parse-description (desc)
   (let ((case-fold-search t))
     (cond
-     ((string-match "^\\(.*\\)[. ]+s\\([0-9]+\\)e\\([0-9]+\\)" desc)
+     ((string-match "^\\(.*\\)[. ]+\\(s\\([0-9]+\\)e\\([0-9]+\\)\\)" desc)
       (list :name (match-string 1 desc)
-	    :season (movie-clean-number (match-string 2 desc))
-	    :episode (movie-clean-number (match-string 3 desc))))
+	    :season (movie-clean-number (match-string 3 desc))
+	    :episode (movie-clean-number (match-string 4 desc))
+	    :epspec (match-string 2 desc)))
      ((string-match "^\\(.*?\\)[. ]+\\([-0-9 ]+\\)" desc)
       (list :name (match-string 1 desc)
 	    :season "0"
-	    :episode (movie-clean-number (match-string 2 desc))))
+	    :episode (movie-clean-number (match-string 3 desc))
+	    :epspec (match-string 2 desc)))
      (t
       (message "Unable to parse %s" desc)
       nil))))
@@ -1792,6 +1794,18 @@ In /tv/links/other-unseen."
      " +" "-"
      (replace-regexp-in-string
       "^0+\\|^ +\\| $" "" string))))
+
+(defun movie-download-bigger (file)
+  "Download bigger versions of the file under point."
+  (interactive (list (movie-current-file)))
+  (let ((data (movie-parse-description (file-name-nondirectory file))))
+    (unless data
+      (error "Couldn't parse %s" (file-name-nondirectory file)))
+    (let ((names
+	   (kickass-download-bigger (concat (plist-get data :name)
+					    " "
+					    (plist-get data :epspec)))))
+      (message "Downloading %s" (string-join names "\n")))))
 
 (defun movie-last-seen (file &optional edit)
   "Say when the series under point was last seen.
