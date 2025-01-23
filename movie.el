@@ -34,6 +34,7 @@
 (require 'touchgrid)
 (require 'url-cache)
 (require 'vtable)
+(require 'kickass)
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
@@ -436,9 +437,10 @@ Otherwise, goto the start of the buffer."
 	 ("Director"
 	  (plist-get object :director))
 	 ("Title"
-	  (if (and (not (plist-get object :seen))
-		   (not (plist-get object :mostly-seen))
-		   (not (plist-get object :seen-version)))
+	  (if (or (not (plist-get object :length))
+		  (and (not (plist-get object :seen))
+		       (not (plist-get object :mostly-seen))
+		       (not (plist-get object :seen-version))))
 	      (file-name-nondirectory (plist-get object :file))
 	    (propertize
 	     (file-name-nondirectory (plist-get object :file))
