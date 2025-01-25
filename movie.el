@@ -34,7 +34,6 @@
 (require 'touchgrid)
 (require 'url-cache)
 (require 'vtable)
-(require 'kickass)
 
 (defvar movie-order nil)
 (defvar movie-limit nil)
@@ -1796,6 +1795,8 @@ In /tv/links/other-unseen."
      " +" "-"
      (replace-regexp-in-string
       "^0+\\|^ +\\| $" "" string))))
+
+(autoload 'kickass-download-bigger "kickass")
 
 (defun movie-download-bigger (file)
   "Download bigger versions of the file under point."
