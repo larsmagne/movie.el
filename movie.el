@@ -333,7 +333,8 @@ Otherwise, goto the start of the buffer."
 		     (plist-get (cdr max) :length)))
 	  (setq max track)))
       (setq data (nconc
-		  (list :image (expand-file-name (concat (car max) ".png") dir))
+		  (list :image (expand-file-name (concat (car max) ".png") dir)
+			:length (cdr max))
 		  data))
       data)))
 
