@@ -805,8 +805,17 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	;; If we have an SRT file, and no internal sub, then use the
 	;; srt file.  This logic isn't quite right...
 	(setq movie-player (append movie-player
-				   (list "--sid=1")))))
+				   (list "--sid=1"))))
+      (when-let ((aid (movie--find-best-audio stats)))
+	(setq movie-player (append movie-player
+				   (list (format "--aid=%s" aid))))))
     (movie-play-1 (append movie-player (list file)))))
+
+(defun movie--find-best-audio (stats)
+  (let* ((case-fold-search t))
+    (cl-loop for (aid . lang) in (plist-get stats :audio)
+	     when (string-match "english" lang)
+	     return aid)))  
 
 (defun movie--find-best-subtitle (stats)
   (let* ((case-fold-search t)
@@ -1224,10 +1233,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-collapse ()
   "Move all files matching a prefix to the same directory."
   (interactive)
-  (let* ((prefix
-	  (read-string "Prefix to collapse: "
-		       (movie-prefix (file-name-nondirectory
-				      (movie-current-file)))))
+  (let* ((prefix (movie-prefix (file-name-nondirectory (movie-current-file))))
 	 (dir (expand-file-name prefix "/tv/future/series/")))
     (when (zerop (length prefix))
       (error "No prefix"))
@@ -1269,10 +1275,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(forward-line 1)))))
 
 (defun movie-prefix (file)
+  (setq file (replace-regexp-in-string " " "." file))
   (catch 'end
     (let ((prefix ""))
       (dolist (part (split-string file "[.]"))
-	(if (string-match "[0-9]" part)
+	(if (string-match "S[0-9]+E[0-9]+" part)
 	    (throw 'end prefix)
 	  (setq prefix
 		(concat
@@ -1460,14 +1467,32 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		 (let ((lang
 			(save-excursion
 			  (and
-			   (re-search-forward "^Language.*: \\(.*\\)" nil t)
+			   (re-search-forward "^Language.*: \\(.*\\)"
+					      (movie--mediainfo-block-end) t)
 			   (match-string 1))))
 		       (title
 			(save-excursion
 			  (and
-			   (re-search-forward "^Title.*: \\(.*\\)" nil t)
+			   (re-search-forward "^Title.*: \\(.*\\)"
+					      (movie--mediainfo-block-end) t)
 			   (match-string 1)))))
-		   (string-join (list lang title) " "))))))))
+		   (string-join (list lang title) " "))))
+	      :audio
+	      (save-excursion
+		(cl-loop
+		 while (re-search-forward "\n\nAudio #\\([0-9]+\\)" nil t)
+		 collect
+		 (cons (match-string 1)
+		       (save-excursion
+			 (and
+			  (re-search-forward "^Language.*: \\(.*\\)"
+					     (movie--mediainfo-block-end) t)
+			  (match-string 1))))))))))
+
+(defun movie--mediainfo-block-end ()
+  (save-excursion
+    (or (search-forward "\n\n" nil t)
+	(point-max))))
 
 (defun movie-interlaced-p (file)
   (let ((stats (movie-get-stats (file-name-directory file))))
@@ -1714,8 +1739,8 @@ In /tv/links/other-unseen."
 		   collect (cons (movie-film-size film) film))
 	  (lambda (f1 f2)
 	    (< (movie-small-rank f1) (movie-small-rank f2)))))
-	;; 1.6TB
-	(total (* 1000 1000 1000 1000 1.6)))
+	;; 1.4TB
+	(total (* 1000 1000 1000 1000 1.4)))
     (cl-loop for (size . film) in films
 	     while (cl-plusp total)
 	     do
@@ -1784,7 +1809,7 @@ In /tv/links/other-unseen."
      ((string-match "^\\(.*?\\)[. ]+\\([-0-9 ]+\\)" desc)
       (list :name (match-string 1 desc)
 	    :season "0"
-	    :episode (movie-clean-number (match-string 3 desc))
+	    :episode (movie-clean-number (match-string 2 desc))
 	    :epspec (match-string 2 desc)))
      (t
       (message "Unable to parse %s" desc)
@@ -2343,6 +2368,15 @@ output directories whose names match REGEXP."
 		   (expand-file-name "sleeve.jpg" (cadr files)))
       (rename-file (expand-file-name "sleeve.jpg.tmp" (car files))
 		   (expand-file-name "sleeve.jpg" (cadr files))))))
+
+(defun movie-link-to-smallunseen (directory)
+  (interactive (list (movie-current-file)))
+  (let ((target (expand-file-name (file-name-nondirectory directory)
+				  "/tv/links/smallunseen")))
+    (when (file-exists-p target)
+      (user-error "Already exists in smallunseen"))
+    (make-symbolic-link directory target)
+    (message "Made link")))
 
 (provide 'movie)
 
