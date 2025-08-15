@@ -1455,7 +1455,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		    (cdr (plist-get stats 'tracks)))))
       ;; Otherwise, use mediainfo to synthesize them.
       (with-temp-buffer
-	(call-process "mediainfo" nil t nil file)
+	(with-environment-variables (("LC_ALL" (getenv "LANG")))
+	  (call-process "mediainfo" nil t nil file))
 	(goto-char (point-min))
 	(list :interlaced
 	      (save-excursion
@@ -1504,7 +1505,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		 :interlaced)
       (and (not (member (system-name) '("mouse" "sandy" "quimbies")))
 	   (with-temp-buffer
-	     (call-process "mediainfo" nil t nil file)
+	     (with-environment-variables (("LC_ALL" (getenv "LANG")))
+	       (call-process "mediainfo" nil t nil file))
 	     (goto-char (point-min))
 	     (re-search-forward "^Scan type.*Interlace" nil t))))))
 
@@ -2219,7 +2221,8 @@ output directories whose names match REGEXP."
 
 (defun movie--fps (file)
   (with-temp-buffer
-    (call-process "mediainfo" nil t nil file)
+    (with-environment-variables (("LC_ALL" (getenv "LANG")))
+      (call-process "mediainfo" nil t nil file))
     (let ((scale 1))
       (goto-char (point-min))
       ;; Interlaced films have twice the frame rate.
