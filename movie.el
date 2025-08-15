@@ -770,6 +770,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-possible-subs (file)
   (list
    (concat (file-name-sans-extension file) ".srt")
+   (concat file ".srt")
    (concat (file-name-sans-extension file) "_eng.srt")
    (file-name-concat
     (file-name-directory file)
@@ -1425,13 +1426,13 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (interactive "fMKV File: ")
   (let* ((dom (mkv-information file))
 	 (subtitles
-	  (cl-loop for track in (dom-by-tag dom 'A-track)
+	  (cl-loop for track in (dom-by-tag dom 'Track)
 		   when (equal (dom-attr track :Track-type) "subtitles")
 		   collect (dom-attr track :Language))))
     `(:length ,(movie-mkv-length
 		(dom-attr (dom-by-tag dom 'Segment-information) :Duration))
 	      :audio-tracks
-	      ,(cl-loop for track in (dom-by-tag dom 'A-track)
+	      ,(cl-loop for track in (dom-by-tag dom 'Track)
 			when (equal (dom-attr track :Track-type) "audio")
 			collect (or (dom-attr track :Language)
 				    (dom-attr track :Name)))
