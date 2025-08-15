@@ -33,7 +33,7 @@
   "Output pertinent information about MKV FILE."
   (interactive "fMKV File: ")
   (with-temp-buffer
-    (with-environment-variables (("LC_ALL" "en_US.UTF-8"))
+    (with-environment-variables (("LC_ALL" (getenv "LANG")))
       (call-process "mkvinfo" nil t nil file))
     (goto-char (point-min))
     (mkv-parse)))
