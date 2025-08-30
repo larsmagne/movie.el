@@ -2382,6 +2382,39 @@ output directories whose names match REGEXP."
     (make-symbolic-link directory target)
     (message "Made link")))
 
+(defun movie-convert-video-ts-to-mkv (dir name)
+  "Convert the movie in DIR to an mkv in /dvd/NAME."
+  (interactive "DVideo TS dir:\nsName: ")
+  (let ((to-dir (expand-file-name name "/dvd/")))
+    (when (and (file-exists-p to-dir)
+	       (length> (directory-files to-dir) 2))
+      (error "%s already exists" to-dir))
+    (unless (file-exists-p to-dir)
+      (make-directory to-dir))
+    (let ((vobs (directory-files (expand-file-name "VIDEO_TS" dir)
+				 t "[.]VOB\\'"))
+	  (mkv 0))
+      (while vobs
+	(let* ((vob (car vobs))
+	       (length (file-attribute-size (file-attributes vob))))
+	  (if (not (= length 1073739776))
+	      (pop vobs)
+	    (apply #'call-process
+		   "cat" nil '(:file "/tmp/concat.vob") nil
+		   (cl-loop collect (pop vobs)
+			    while (and vobs
+				       (= (file-attribute-size
+					   (file-attributes (car vobs)))))))
+	    (setq vob "/tmp/concat.vob"))
+	  (call-process
+	   "ffmpeg" nil (get-buffer-create "*errors*") nil
+	   "-i" vob
+	   "-codec:a" "copy"
+	   "-codec:s" "copy"
+	   (expand-file-name (format "title%02d.mkv"
+				     (cl-incf mkv))
+			     to-dir)))))))
+
 (provide 'movie)
 
 ;;; movie.el ends here
