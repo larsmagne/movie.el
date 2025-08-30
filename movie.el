@@ -2395,18 +2395,18 @@ output directories whose names match REGEXP."
 				 t "[.]VOB\\'"))
 	  (mkv 0))
       (while vobs
-	(let* ((vob (car vobs))
-	       (length (file-attribute-size (file-attributes vob))))
-	  (if (not (= length 1073739776))
-	      (pop vobs)
-	    (apply #'call-process
-		   "cat" nil '(:file "/tmp/concat.vob") nil
-		   (cl-loop collect (car vobs)
-			    while (and vobs
-				       (= (file-attribute-size
-					   (file-attributes (pop vobs)))
-					  1073739776))))
-	    (setq vob "/tmp/concat.vob"))
+	(let ((vob
+	       (if (not (= (file-attribute-size (file-attributes (car vobs)))
+			   1073739776))
+		   (pop vobs)
+		 (apply #'call-process
+			"cat" nil '(:file "/tmp/concat.vob") nil
+			(cl-loop collect (car vobs)
+				 while (and vobs
+					    (= (file-attribute-size
+						(file-attributes (pop vobs)))
+					       1073739776))))
+		 "/tmp/concat.vob")))
 	  (call-process
 	   "ffmpeg" nil (get-buffer-create "*errors*") nil
 	   "-fflags" "+genpts" "-i" vob "-c" "copy"
