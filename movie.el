@@ -2473,17 +2473,15 @@ output directories whose names match REGEXP."
 			   "that portrayed this character in this movie?  ")))
 	    (query-assistant--hash
 	     (list "type" "input_image")
-	     (list "image_url" (concat "data:image/jpg;base64,"
-				       (with-temp-buffer
-					 (set-buffer-multibyte nil)
-					 (call-process
-					  "convert" nil t nil
-					  (expand-file-name image)
-					  "-resize" "800x"
-					  "jpg:-")
-					 (base64-encode-region
-					  (point-min) (point-max))
-					 (buffer-string)))))))))))
+	     (list "image_url"
+		   (concat "data:image/jpg;base64,"
+			   (with-temp-buffer
+			     (set-buffer-multibyte nil)
+			     (call-process
+			      "convert" nil t nil (expand-file-name image)
+			      "-resize" "800x" "jpg:-")
+			     (base64-encode-region (point-min) (point-max))
+			     (buffer-string)))))))))))
 
 (provide 'movie)
 
