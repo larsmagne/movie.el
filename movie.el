@@ -2424,7 +2424,7 @@ output directories whose names match REGEXP."
       (insert "mp.add_key_binding(\"b\", \"show_actor\", function()
         mp.osd_message("
 	      (format "%S" string)
-	      ", 60)
+	      ", 10)
     end)")
       (write-region (point-min) (point-max) file nil 'silent))
     (movie-send-mpv-command
@@ -2470,8 +2470,7 @@ output directories whose names match REGEXP."
 		   (concat "What is the name of the character in this "
 			   "movie screenshot?  The movie is " movie ". "
 			   "And what's the name of the actor/actreess "
-			   "that portrayed this character in this movie?  "
-			   "Include only the two names in your answer. ")))
+			   "that portrayed this character in this movie?  ")))
 	    (query-assistant--hash
 	     (list "type" "input_image")
 	     (list "image_url" (concat "data:image/jpg;base64,"
