@@ -2433,22 +2433,13 @@ output directories whose names match REGEXP."
 
 (defvar movie--actor-timer nil)
 
-(defun movie-query-and-display-2 ()
-  (movie--mpv-osd "hello!"))
-
 (defun movie--mpv-osd (string)
-  (let ((file "/tmp/mpv-actor.lua"))
-    (with-temp-buffer
-      (insert "mp.add_key_binding(\"b\", \"show_actor\", function()
-        mp.osd_message("
-	      (format "%S" string)
-	      ", 10)\n end)\n")
-      (write-region (point-min) (point-max) file nil 'silent))
-    (movie-send-mpv-command
-     `((command . ["load_script" ,file])))
-    (sleep-for 0.1)
-    (movie-send-mpv-command
-     `((command . ["keypress" "b"])))))
+  (movie-send-mpv-command
+   `((command . ["show-text"
+		 ,(format "%S"
+			  (string-replace "\"" "'"
+					  (string-replace "\n" " " string)))
+		 5000]))))
 
 (defun movie-query-and-display ()
   "Query an LLM about the actor currently on the screen."
