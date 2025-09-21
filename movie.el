@@ -2478,7 +2478,7 @@ output directories whose names match REGEXP."
 		 "And what's the name of the actor/actreess "
 		 "that portrayed this character in this "
 		 (if is-movie "movie" "tv series")
-		 "?  "))
+		 "?  If you don't recognise the person, say so."))
 	(data
 	 (with-temp-buffer
 	   (set-buffer-multibyte nil)
