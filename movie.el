@@ -2478,36 +2478,50 @@ output directories whose names match REGEXP."
 (defun movie-query-actor (movie image &optional is-movie)
   (message "Querying %s" movie)
   (require 'query-assistant)
-  (query-assistant
-   'openai
-   (vector
-    (query-assistant--hash
-     (list "role" "user")
-     (list "content"
-	   (vector
-	    (query-assistant--hash
-	     (list "type" "input_text")
-	     (list "text"
-		   (concat "What is the name of the character in this "
-			   (if is-movie "movie" "tv series")
-			   " screenshot?  The "
-			   (if is-movie "movie" "tv series")
-			   " is " movie ". "
-			   "And what's the name of the actor/actreess "
-			   "that portrayed this character in this "
-			   (if is-movie "movie" "tv series")
-			   "?  ")))
-	    (query-assistant--hash
-	     (list "type" "input_image")
-	     (list "image_url"
-		   (concat "data:image/jpg;base64,"
-			   (with-temp-buffer
-			     (set-buffer-multibyte nil)
-			     (call-process
-			      "convert" nil t nil (expand-file-name image)
-			      "-resize" "800x" "jpg:-")
-			     (base64-encode-region (point-min) (point-max))
-			     (buffer-string)))))))))))
+  (let ((text
+	 (concat "What is the name of the character in this "
+		 (if is-movie "movie" "tv series")
+		 " screenshot?  The "
+		 (if is-movie "movie" "tv series")
+		 " is " movie ". "
+		 "And what's the name of the actor/actreess "
+		 "that portrayed this character in this "
+		 (if is-movie "movie" "tv series")
+		 "?  "))
+	(data
+	 (with-temp-buffer
+	   (set-buffer-multibyte nil)
+	   (call-process
+	    "convert" nil t nil (expand-file-name image)
+	    "-resize" "800x" "jpg:-")
+	   (base64-encode-region (point-min) (point-max) t)
+	   (buffer-string))))
+    ;; Gemini seems to give better results than OpenAI.
+    (if t
+	(query-assistant
+	 'gemini
+	 (vector
+	  (query-assistant--hash
+	   (list "text" text))
+	  (query-assistant--hash
+	   (list "inline_data"
+		 (query-assistant--hash
+		  (list "mime_type" "image/jpeg")
+		  (list "data" data))))))
+      (query-assistant
+       'openai
+       (vector
+	(query-assistant--hash
+	 (list "role" "user")
+	 (list "content"
+	       (vector
+		(query-assistant--hash
+		 (list "type" "input_text")
+		 (list "text" text))
+		(query-assistant--hash
+		 (list "type" "input_image")
+		 (list "image_url"
+		       (concat "data:image/jpg;base64," data)))))))))))
 
 (provide 'movie)
 
