@@ -952,6 +952,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
    `((command . ["screenshot" "video" "each-frame"]))))
 
 (defvar movie-recording-directory "/tmp")
+(defvar movie--current-title "unknown")
+(defvar movie--file-currently-playing "/tmp")
 
 (defun movie-find-anim-name ()
   (let ((num 1)
@@ -979,9 +981,22 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (movie-send-mpv-command
      `((command . ["set_property" "audio-delay" ,(cadr elem)])))))
 
+(defun movie--file-title (file)
+  (let ((stats-file (expand-file-name "stats" (file-name-directory file)))
+	(title nil))
+    (when (file-exists-p stats-file)
+      (let ((stats (movie-get-stats (file-name-directory stats-file))))
+	(setq title (cdr (assoc "Title" stats)))))
+    (unless title
+      (setq title (file-name-sans-extension (file-name-nondirectory file)))
+      (setq title (replace-regexp-in-string "-title.*" "" title))
+      (setq title (movie-prefix title)))
+    title))
+
 (defun movie-play-1 (player)
   (setq movie-current-audio-device 0
-	movie-anim-state nil)
+	movie-anim-state nil
+	movie--file-currently-playing (car (last player)))
   (when-let ((skip (and (not movie-inhibit-positions)
 			(movie-find-position
 			 (or movie-file-id
@@ -2439,17 +2454,18 @@ output directories whose names match REGEXP."
 (defun movie-query-and-display ()
   (when movie--actor-timer
     (cancel-timer movie--actor-timer))
-  (let ((movie (file-name-nondirectory
-		(directory-file-name movie-recording-directory)))
-	(old-files (directory-files movie-recording-directory t))
-	func)
+  (let* ((movie (movie--file-title movie--file-currently-playing))
+	 (is-movie (file-exists-p
+		    (expand-file-name "stats" (file-name-directory movie))))
+	 (old-files (directory-files movie-recording-directory t))
+	 func)
     (setq func
 	  (lambda ()
 	    (let ((new (seq-difference
 			(directory-files movie-recording-directory t)
 			old-files)))
 	      (if new
-		  (let ((names (movie-query-actor movie (car new))))
+		  (let ((names (movie-query-actor movie (car new) is-movie)))
 		    (message "Got names %s"  names)
 		    (movie--mpv-osd names))
 		(setq movie--actor-timer (run-at-time 0.1 nil func))))))
@@ -2458,7 +2474,7 @@ output directories whose names match REGEXP."
     (setq movie--actor-timer (run-at-time 0.1 nil func))
     nil))
 
-(defun movie-query-actor (movie image)
+(defun movie-query-actor (movie image &optional is-movie)
   (message "Querying %s" movie)
   (query-assistant
    'openai
@@ -2471,9 +2487,14 @@ output directories whose names match REGEXP."
 	     (list "type" "input_text")
 	     (list "text"
 		   (concat "What is the name of the character in this "
-			   "movie screenshot?  The movie is " movie ". "
+			   (if is-movie "movie" "tv series")
+			   " screenshot?  The "
+			   (if is-movie "movie" "tv series")
+			   " is " movie ". "
 			   "And what's the name of the actor/actreess "
-			   "that portrayed this character in this movie?  ")))
+			   "that portrayed this character in this "
+			   (if is-movie "movie" "tv series")
+			   "?  ")))
 	    (query-assistant--hash
 	     (list "type" "input_image")
 	     (list "image_url"
