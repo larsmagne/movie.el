@@ -25,6 +25,9 @@
 
 ;; apt install mpv mediainfo
 
+;; query-assistant.el can be found in https://github.com/larsmagne/bookiez.el
+;; It's needed for LLM-assisted actor identification only.
+
 ;;; Code:
 
 (require 'time-date)
