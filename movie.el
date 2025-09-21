@@ -2476,6 +2476,7 @@ output directories whose names match REGEXP."
 
 (defun movie-query-actor (movie image &optional is-movie)
   (message "Querying %s" movie)
+  (require 'query-assistant)
   (query-assistant
    'openai
    (vector
