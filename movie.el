@@ -2436,9 +2436,8 @@ output directories whose names match REGEXP."
 (defun movie--mpv-osd (string)
   (movie-send-mpv-command
    `((command . ["show-text"
-		 ,(format "%S"
-			  (string-replace "\"" "'"
-					  (string-replace "\n" " " string)))
+		 ,(string-replace "\"" "'"
+				  (string-replace "\n" " " string))
 		 5000]))))
 
 (defun movie-query-and-display ()
