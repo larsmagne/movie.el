@@ -2452,6 +2452,8 @@ output directories whose names match REGEXP."
      `((command . ["keypress" "b"])))))
 
 (defun movie-query-and-display ()
+  "Query an LLM about the actor currently on the screen."
+  (interactive)
   (when movie--actor-timer
     (cancel-timer movie--actor-timer))
   (let* ((movie (movie--file-title movie--file-currently-playing))
