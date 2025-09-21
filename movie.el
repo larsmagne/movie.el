@@ -2442,8 +2442,7 @@ output directories whose names match REGEXP."
       (insert "mp.add_key_binding(\"b\", \"show_actor\", function()
         mp.osd_message("
 	      (format "%S" string)
-	      ", 10)
-    end)")
+	      ", 10)\n end)\n")
       (write-region (point-min) (point-max) file nil 'silent))
     (movie-send-mpv-command
      `((command . ["load_script" ,file])))
