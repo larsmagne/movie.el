@@ -2413,6 +2413,79 @@ output directories whose names match REGEXP."
 	   (expand-file-name (format "title%02d.mkv" (cl-incf mkv))
 			     to-dir)))))))
 
+(defvar movie--actor-timer nil)
+
+(defun movie-query-and-display-2 ()
+  (movie--mpv-osd "hello!"))
+
+(defun movie--mpv-osd (string)
+  (let ((file "/tmp/mpv-actor.lua"))
+    (with-temp-buffer
+      (insert "mp.add_key_binding(\"b\", \"show_actor\", function()
+        mp.osd_message("
+	      (format "%S" string)
+	      ", 60)
+    end)")
+      (write-region (point-min) (point-max) file nil 'silent))
+    (movie-send-mpv-command
+     `((command . ["load_script" ,file])))
+    (sleep-for 0.1)
+    (movie-send-mpv-command
+     `((command . ["keypress" "b"])))))
+
+(defun movie-query-and-display ()
+  (when movie--actor-timer
+    (cancel-timer movie--actor-timer))
+  (let ((movie (file-name-nondirectory
+		(directory-file-name movie-recording-directory)))
+	(old-files (directory-files movie-recording-directory t))
+	func)
+    (setq func
+	  (lambda ()
+	    (let ((new (seq-difference
+			(directory-files movie-recording-directory t)
+			old-files)))
+	      (if new
+		  (let ((names (movie-query-actor movie (car new))))
+		    (message "Got names %s"  names)
+		    (movie--mpv-osd names))
+		(setq movie--actor-timer (run-at-time 0.1 nil func))))))
+    (movie-send-mpv-command
+     `((command . ["screenshot" "video"])))
+    (setq movie--actor-timer (run-at-time 0.1 nil func))
+    nil))
+
+(defun movie-query-actor (movie image)
+  (message "Querying %s" movie)
+  (query-assistant
+   'openai
+   (vector
+    (query-assistant--hash
+     (list "role" "user")
+     (list "content"
+	   (vector
+	    (query-assistant--hash
+	     (list "type" "input_text")
+	     (list "text"
+		   (concat "What is the name of the character in this "
+			   "movie screenshot?  The movie is " movie ". "
+			   "And what's the name of the actor/actreess "
+			   "that portrayed this character in this movie?  "
+			   "Include only the two names in your answer. ")))
+	    (query-assistant--hash
+	     (list "type" "input_image")
+	     (list "image_url" (concat "data:image/jpg;base64,"
+				       (with-temp-buffer
+					 (set-buffer-multibyte nil)
+					 (call-process
+					  "convert" nil t nil
+					  (expand-file-name image)
+					  "-resize" "800x"
+					  "jpg:-")
+					 (base64-encode-region
+					  (point-min) (point-max))
+					 (buffer-string)))))))))))
+
 (provide 'movie)
 
 ;;; movie.el ends here
