@@ -2135,6 +2135,7 @@ output directories whose names match REGEXP."
   "Reload movie.el."
   (interactive)
   (load "~/src/movie.el/movie.el")
+  (load "~/src/bookiez.el/query-assistant.el")
   (load "~/.emacs")
   (message "Reloaded")
   ;;(movie-reload-play)
