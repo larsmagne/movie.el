@@ -2471,13 +2471,13 @@ output directories whose names match REGEXP."
   (let ((text
 	 (concat "What is the name of the character in this "
 		 (if is-movie "movie" "tv series")
-		 " screenshot?  The "
-		 (if is-movie "movie" "tv series")
-		 " is " movie ". "
+		 " screenshot?  "
+		 "The " (if is-movie "movie" "tv series") " is " movie ". "
 		 "And what's the name of the actor/actreess "
 		 "that portrayed this character in this "
 		 (if is-movie "movie" "tv series")
-		 "?  If you don't recognise the person, say so."))
+		 "?  If you don't recognise the person, say so. "
+		 "Answer succinctly. "))
 	(data
 	 (with-temp-buffer
 	   (set-buffer-multibyte nil)
