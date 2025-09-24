@@ -2537,7 +2537,7 @@ output directories whose names match REGEXP."
 	 (width (display-pixel-width))
 	 (height (display-pixel-height))
 	 (svg (svg-create width height))
-	 (text-start (- height (* 3 100)))
+	 (text-start (- height (* 2 120)))
 	 (pid (car elems)))
     ;; Sometimes Gemini returns the person id without the "nm".
     (unless (string-match-p "\\`nm" pid)
@@ -2554,16 +2554,18 @@ output directories whose names match REGEXP."
 		      :y 30
 		      :height (/ height 2)
 		      :width im-width)))
-       (dolist (text (cdr elems))
+       (dolist (text (list (format "%s (%s)" (nth 2 elems) (nth 1 elems))
+			   (nth 3 elems)))
 	 (svg-text svg (format "%s" text)
-		   :font-size 100
+		   :font-size 120
 		   :stroke "black"
 		   :fill "white"
-		   :stroke-width 1
+		   :stroke-width 4
+		   :font-weight "bold"
 		   :font-family "Futura"
 		   :y text-start
 		   :x 30)
-	 (cl-incf text-start 120))
+	 (cl-incf text-start 160))
        (with-temp-buffer
 	 (svg-print svg)
 	 (call-process-region (point-min) (point-max) "convert"
