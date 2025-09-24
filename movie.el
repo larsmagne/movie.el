@@ -2441,6 +2441,16 @@ output directories whose names match REGEXP."
 				  (string-replace "\n" " " string))
 		 5000]))))
 
+(defun movie--overlay-card (file width height)
+  (movie-send-mpv-command
+   `((command . ["overlay-add"
+		 0 0 0 ,file 0 "bgra"
+		 ,width ,height ,(* width 4)])))
+  (run-at-time 5 nil
+	       (lambda ()
+		 (movie-send-mpv-command
+		  `((command . ["overlay-remove" 0]))))))
+
 (defun movie-query-and-display ()
   "Query an LLM about the actor currently on the screen."
   (interactive)
@@ -2459,7 +2469,7 @@ output directories whose names match REGEXP."
 	      (if new
 		  (let ((names (movie-query-actor movie (car new) is-movie)))
 		    (message "Got names %s"  names)
-		    (movie--mpv-osd names))
+		    (movie--create-actor-card names))
 		(setq movie--actor-timer (run-at-time 0.1 nil func))))))
     (movie-send-mpv-command
      `((command . ["screenshot" "video"])))
@@ -2478,7 +2488,14 @@ output directories whose names match REGEXP."
 		 "that portrayed this character in this "
 		 (if is-movie "movie" "tv series")
 		 "?  If you don't recognise the person, say so. "
-		 "Answer succinctly. "))
+		 "Also include the three movies/tv series the actor/actress "
+		 "is most known for. "
+		 "Also include the imdb actor/acress ID. "
+		 "Answer succinctly. "
+		 "Answer in this format: 'ID; Character; Actor/Actress; "
+		 "Most-known'.  Don't include semi-colons in the most-known "
+		 "list, but comma-separate them instead."
+		 ))
 	(data
 	 (with-temp-buffer
 	   (set-buffer-multibyte nil)
@@ -2513,6 +2530,44 @@ output directories whose names match REGEXP."
 		 (list "type" "input_image")
 		 (list "image_url"
 		       (concat "data:image/jpg;base64," data)))))))))))
+
+;; "Warlord Dementus; Chris Hemsworth; nm1165110; Thor; The Avengers; Extraction"
+(defun movie--create-actor-card (data)
+  (let* ((elems (split-string data ";" nil split-string-default-separators))
+	 (width (display-pixel-width))
+	 (height (display-pixel-height))
+	 (svg (svg-create width height))
+	 (text-start (- height (* 3 100))))
+    (imdb-fetch-profile-picture
+     (car elems)
+     (lambda (image)
+       (when image
+	 (let* ((size (image-size (create-image image nil t :scaling 1) t))
+		(im-width (* (/ (/ height 2) (float (cdr size)))
+			     (car size))))
+	   (svg-embed svg image "image/jpeg" t
+		      :x (- width 30 im-width)
+		      :y 30
+		      :height (/ height 2)
+		      :width im-width)))
+       (dolist (text (cdr elems))
+	 (svg-text svg (format "%s" text)
+		   :font-size 100
+		   :stroke "black"
+		   :fill "white"
+		   :stroke-width 1
+		   :font-family "Futura"
+		   :y text-start
+		   :x 30)
+	 (cl-incf text-start 120))
+       (with-temp-buffer
+	 (svg-print svg)
+	 (call-process-region (point-min) (point-max) "~/bin/convert"
+			      nil (get-buffer-create "*convert*") nil
+			      "-background" "transparent"
+			      "-depth" "8" 
+			      "svg:-" "bgra:/tmp/foo.bgra"))
+       (movie--overlay-card "/tmp/foo.bgra" width height)))))
 
 (provide 'movie)
 
