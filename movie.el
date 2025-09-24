@@ -2537,9 +2537,13 @@ output directories whose names match REGEXP."
 	 (width (display-pixel-width))
 	 (height (display-pixel-height))
 	 (svg (svg-create width height))
-	 (text-start (- height (* 3 100))))
+	 (text-start (- height (* 3 100)))
+	 (pid (car elems)))
+    ;; Sometimes Gemini returns the person id without the "nm".
+    (unless (string-match-p "\\`nm" pid)
+      (setq pid (concat "nm" pid)))
     (imdb-fetch-profile-picture
-     (car elems)
+     pid
      (lambda (image)
        (when image
 	 (let* ((size (image-size (create-image image nil t :scaling 1) t))
@@ -2562,7 +2566,7 @@ output directories whose names match REGEXP."
 	 (cl-incf text-start 120))
        (with-temp-buffer
 	 (svg-print svg)
-	 (call-process-region (point-min) (point-max) "~/bin/convert"
+	 (call-process-region (point-min) (point-max) "convert"
 			      nil (get-buffer-create "*convert*") nil
 			      "-background" "transparent"
 			      "-depth" "8" 
