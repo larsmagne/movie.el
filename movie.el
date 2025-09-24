@@ -2576,8 +2576,8 @@ output directories whose names match REGEXP."
 			      nil (get-buffer-create "*convert*") nil
 			      "-background" "transparent"
 			      "-depth" "8" 
-			      "svg:-" "bgra:/tmp/foo.bgra"))
-       (movie--overlay-card "/tmp/foo.bgra" width height)))))
+			      "svg:-" "bgra:/tmp/mpv.bgra"))
+       (movie--overlay-card "/tmp/mpv.bgra" width height)))))
 
 (provide 'movie)
 
