@@ -2434,12 +2434,12 @@ output directories whose names match REGEXP."
 
 (defvar movie--actor-timer nil)
 
-(defun movie--mpv-osd (string)
+(defun movie--mpv-osd (string &optional time)
   (movie-send-mpv-command
    `((command . ["show-text"
 		 ,(string-replace "\"" "'"
 				  (string-replace "\n" " " string))
-		 5000]))))
+		 ,(or time 5000)]))))
 
 (defun movie--overlay-card (file width height)
   (movie-send-mpv-command
@@ -2454,6 +2454,7 @@ output directories whose names match REGEXP."
 (defun movie-query-and-display ()
   "Query an LLM about the actor currently on the screen."
   (interactive)
+  (movie--mpv-osd "Querying..." 1000)
   (when movie--actor-timer
     (cancel-timer movie--actor-timer))
   (let* ((movie (movie--file-title movie--file-currently-playing))
@@ -2554,18 +2555,20 @@ output directories whose names match REGEXP."
 		      :y 30
 		      :height (/ height 2)
 		      :width im-width)))
-       (dolist (text (list (format "%s (%s)" (nth 2 elems) (nth 1 elems))
-			   (nth 3 elems)))
-	 (svg-text svg (format "%s" text)
-		   :font-size 120
-		   :stroke "black"
-		   :fill "white"
-		   :stroke-width 4
-		   :font-weight "bold"
-		   :font-family "Futura"
-		   :y text-start
-		   :x 30)
-	 (cl-incf text-start 160))
+       (cl-loop for (text color) in
+		(list (list (format "%s (%s)" (nth 2 elems) (nth 1 elems))
+			    "white")
+		      (list (nth 3 elems) "grey"))
+		do (svg-text svg (format "%s" text)
+			     :font-size 120
+			     :stroke "black"
+			     :fill color
+			     :stroke-width 4
+			     :font-weight "bold"
+			     :font-family "Futura"
+			     :y text-start
+			     :x 30)
+		(cl-incf text-start 160))
        (with-temp-buffer
 	 (svg-print svg)
 	 (call-process-region (point-min) (point-max) "convert"
