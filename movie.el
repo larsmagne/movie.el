@@ -2544,7 +2544,7 @@ output directories whose names match REGEXP."
     (unless (string-match-p "\\`nm" pid)
       (setq pid (concat "nm" pid)))
     (imdb-fetch-profile-picture
-     pid
+     (imdb-mode-person-id (nth 2 elems))
      (lambda (image)
        (when image
 	 (let* ((size (image-size (create-image image nil t :scaling 1) t))
