@@ -2543,6 +2543,7 @@ output directories whose names match REGEXP."
     ;; Sometimes Gemini returns the person id without the "nm".
     (unless (string-match-p "\\`nm" pid)
       (setq pid (concat "nm" pid)))
+    (imdb-initialize)
     (imdb-fetch-profile-picture
      (imdb-mode-person-id (nth 2 elems))
      (lambda (image)
