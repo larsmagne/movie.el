@@ -2572,8 +2572,13 @@ output directories whose names match REGEXP."
 		(cl-incf text-start 160))
        (with-temp-buffer
 	 (svg-print svg)
-	 (call-process-region (point-min) (point-max) "convert"
-			      nil (get-buffer-create "*convert*") nil
+	 (when nil
+	   (call-process-region (point-min) (point-max)
+				"convert" nil nil nil
+				"-background" "transparent"
+				"svg:-" "/tmp/mpv.png"))
+	 (call-process-region (point-min) (point-max)
+			      "convert" nil nil nil
 			      "-background" "transparent"
 			      "-depth" "8" 
 			      "svg:-" "bgra:/tmp/mpv.bgra"))
