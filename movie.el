@@ -2540,8 +2540,14 @@ output directories whose names match REGEXP."
    image))
 
 (defun movie--create-actor-card (data &optional screenshot)
-  (let* ((elems (split-string data ";" nil split-string-default-separators))
-	 (width (display-pixel-width))
+  (let ((elems (split-string data ";" nil split-string-default-separators)))
+    (if (= (length elems) 4)
+	(movie--create-actor-card-1 elems screenshot)
+      ;; Didn't recognize anything.
+      (movie--mpv-osd data))))
+
+(defun movie--create-actor-card-1 (elems &optional screenshot)
+  (let* ((width (display-pixel-width))
 	 (height (display-pixel-height))
 	 (svg (svg-create width height))
 	 (text-start (- height (* 2 120)))
@@ -2550,27 +2556,25 @@ output directories whose names match REGEXP."
     (unless (string-match-p "\\`nm" pid)
       (setq pid (concat "nm" pid)))
     ;; Create an outline around the text.
-    (setq svg
-	  (append
-	   svg
-	   (list
-	    (dom-node 'filter '((id . "outline"))
-		      (dom-node 'feMorphology
-				'((in . "SourceAlpha")
-				  (result . "DILATED")
-				  (operator . "dilate")
-				  (radius . "3")))
-		      (dom-node 'feFlood '((flood-color . "black")
-					   (flood-opacity . "1")
-					   (result . "PINK")))
-		      (dom-node 'feComposite '((in . "PINK")
-					       (in2 . "DILATED")
-					       (operator . "in")
-					       (result . "OUTLINE")))
-		      (dom-node
-		       'feMerge nil
-		       (dom-node 'feMergeNode '((in . "OUTLINE")))
-		       (dom-node 'feMergeNode '((in . "SourceGraphic"))))))))
+    (dom-append-child
+     svg
+     (dom-node 'filter '((id . "outline"))
+	       (dom-node 'feMorphology
+			 '((in . "SourceAlpha")
+			   (result . "DILATED")
+			   (operator . "dilate")
+			   (radius . "3")))
+	       (dom-node 'feFlood '((flood-color . "black")
+				    (flood-opacity . "1")
+				    (result . "PINK")))
+	       (dom-node 'feComposite '((in . "PINK")
+					(in2 . "DILATED")
+					(operator . "in")
+					(result . "OUTLINE")))
+	       (dom-node
+		'feMerge nil
+		(dom-node 'feMergeNode '((in . "OUTLINE")))
+		(dom-node 'feMergeNode '((in . "SourceGraphic"))))))
     (imdb-initialize)
     (imdb-fetch-profile-picture
      (imdb-mode-person-id (nth 2 elems))
