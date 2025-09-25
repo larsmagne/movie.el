@@ -2469,7 +2469,6 @@ output directories whose names match REGEXP."
 			old-files)))
 	      (if new
 		  (let ((names (movie-query-actor movie (car new) is-movie)))
-		    (message "Got names %s"  names)
 		    (movie--create-actor-card names))
 		(setq movie--actor-timer (run-at-time 0.1 nil func))))))
     (movie-send-mpv-command
@@ -2490,7 +2489,7 @@ output directories whose names match REGEXP."
 		 (if is-movie "movie" "tv series")
 		 "?  If you don't recognise the person, say so. "
 		 "Also include the three movies/tv series the actor/actress "
-		 "is most known for. "
+		 "is most known for (excluding this one). "
 		 "Also include the imdb actor/acress ID. "
 		 "Answer succinctly. "
 		 "Answer in this format: 'ID; Character; Actor/Actress; "
@@ -2532,8 +2531,15 @@ output directories whose names match REGEXP."
 		 (list "image_url"
 		       (concat "data:image/jpg;base64," data)))))))))))
 
-;; "Warlord Dementus; Chris Hemsworth; nm1165110; Thor; The Avengers; Extraction"
-(defun movie--create-actor-card (data)
+
+(defun movie--test-screenshot (image)
+  (movie--create-actor-card
+   (movie-query-actor
+    (file-name-nondirectory (directory-file-name (file-name-directory image)))
+    image t)
+   image))
+
+(defun movie--create-actor-card (data &optional screenshot)
   (let* ((elems (split-string data ";" nil split-string-default-separators))
 	 (width (display-pixel-width))
 	 (height (display-pixel-height))
@@ -2547,6 +2553,26 @@ output directories whose names match REGEXP."
     (imdb-fetch-profile-picture
      (imdb-mode-person-id (nth 2 elems))
      (lambda (image)
+       ;; This is for debugging only.
+       (when screenshot
+	 (let* ((ssize (image-size (create-image screenshot nil nil
+						 :scaling 1)
+				   t))
+		(saspect (/ (float (car ssize)) (cdr ssize)))
+		(daspect (/ (float width) height)))
+	   (if (> saspect daspect)
+	       (let ((sheight (* (/ width (float (car ssize))) (cdr ssize))))
+		 (svg-embed svg screenshot "image/jpeg" nil
+			    :width width
+			    :height sheight
+			    :x 0
+			    :y (/ (- height sheight) 2)))
+	     (let ((swidth (* (/ height (float (cdr ssize))) (car ssize))))
+	       (svg-embed svg screenshot "image/jpeg" nil
+			  :width swidth
+			  :height height
+			  :x (/ (- width swidth) 2)
+			  :y 0)))))
        (when image
 	 (let* ((size (image-size (create-image image nil t :scaling 1) t))
 		(im-width (* (/ (/ height 2) (float (cdr size)))
@@ -2572,16 +2598,16 @@ output directories whose names match REGEXP."
 		(cl-incf text-start 160))
        (with-temp-buffer
 	 (svg-print svg)
-	 (when nil
-	   (call-process-region (point-min) (point-max)
-				"convert" nil nil nil
-				"-background" "transparent"
-				"svg:-" "/tmp/mpv.png"))
 	 (call-process-region (point-min) (point-max)
 			      "convert" nil nil nil
 			      "-background" "transparent"
 			      "-depth" "8" 
-			      "svg:-" "bgra:/tmp/mpv.bgra"))
+			      "svg:-" "bgra:/tmp/mpv.bgra")
+	 (when screenshot
+	   (call-process-region (point-min) (point-max)
+				"convert" nil nil nil
+				"-background" "transparent"
+				"svg:-" "/tmp/mpv.jpg")))
        (movie--overlay-card "/tmp/mpv.bgra" width height)))))
 
 (provide 'movie)
