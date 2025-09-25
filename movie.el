@@ -2553,35 +2553,48 @@ output directories whose names match REGEXP."
       ;; Didn't recognize anything.
       (movie--mpv-osd data))))
 
+(defvar svg--id-counter 1)
+
+(defun svg-outline (svg size color opacity)
+  "Create an outline filter of SIZE, using COLOR and OPACITY.
+Returns the name of the filter."
+  (let* ((counter (cl-incf svg--id-counter))
+	 (id (format "outline-%d" counter)))
+    (dom-append-child
+     svg
+     (dom-node 'filter `((id . ,id))
+	       (dom-node 'feMorphology
+			 `((in . "SourceAlpha")
+			   (result . ,(format "DILATED-%d" counter))
+			   (operator . "dilate")
+			   (radius . ,(format "%s" size))))
+	       (dom-node 'feFlood
+			 `((flood-color . ,color)
+			   (flood-opacity . ,(format "%s" opacity))
+			   (result . ,(format "FLOOD-%d" counter))))
+	       (dom-node 'feComposite
+			 `((in . ,(format "FLOOD-%d" counter))
+			   (in2 . ,(format "DILATED-%d" counter))
+			   (operator . "in")
+			   (result . ,(format "OUTLINE-%d" counter))))
+	       (dom-node
+		'feMerge nil
+		(dom-node 'feMergeNode `((in . ,(format "OUTLINE-%d" counter))))
+		(dom-node 'feMergeNode `((in . "SourceGraphic"))))))
+    (format "url(#%s)" id)))
+
 (defun movie--create-actor-card-1 (elems &optional screenshot)
   (let* ((width (display-pixel-width))
 	 (height (display-pixel-height))
 	 (svg (svg-create width height))
 	 (text-start (- height (* 2 120)))
-	 (pid (car elems)))
+	 (pid (car elems))
+	 filter)
     ;; Sometimes Gemini returns the person id without the "nm".
     (unless (string-match-p "\\`nm" pid)
       (setq pid (concat "nm" pid)))
     ;; Create an outline around the text.
-    (dom-append-child
-     svg
-     (dom-node 'filter '((id . "outline"))
-	       (dom-node 'feMorphology
-			 '((in . "SourceAlpha")
-			   (result . "DILATED")
-			   (operator . "dilate")
-			   (radius . "3")))
-	       (dom-node 'feFlood '((flood-color . "black")
-				    (flood-opacity . "1")
-				    (result . "PINK")))
-	       (dom-node 'feComposite '((in . "PINK")
-					(in2 . "DILATED")
-					(operator . "in")
-					(result . "OUTLINE")))
-	       (dom-node
-		'feMerge nil
-		(dom-node 'feMergeNode '((in . "OUTLINE")))
-		(dom-node 'feMergeNode '((in . "SourceGraphic"))))))
+    (setq filter (svg-outline svg 3 "black" 1))
     (imdb-initialize)
     (imdb-fetch-profile-picture
      (imdb-mode-person-id (nth 2 elems))
@@ -2628,7 +2641,7 @@ output directories whose names match REGEXP."
 			     :font-family "Futura"
 			     :y text-start
 			     :x 30
-			     :filter "url(#outline)")
+			     :filter filter)
 		(cl-incf text-start 160))
        (with-temp-buffer
 	 (svg-print svg)
