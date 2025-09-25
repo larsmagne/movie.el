@@ -2549,6 +2549,28 @@ output directories whose names match REGEXP."
     ;; Sometimes Gemini returns the person id without the "nm".
     (unless (string-match-p "\\`nm" pid)
       (setq pid (concat "nm" pid)))
+    ;; Create an outline around the text.
+    (setq svg
+	  (append
+	   svg
+	   (list
+	    (dom-node 'filter '((id . "outline"))
+		      (dom-node 'feMorphology
+				'((in . "SourceAlpha")
+				  (result . "DILATED")
+				  (operator . "dilate")
+				  (radius . "3")))
+		      (dom-node 'feFlood '((flood-color . "black")
+					   (flood-opacity . "1")
+					   (result . "PINK")))
+		      (dom-node 'feComposite '((in . "PINK")
+					       (in2 . "DILATED")
+					       (operator . "in")
+					       (result . "OUTLINE")))
+		      (dom-node
+		       'feMerge nil
+		       (dom-node 'feMergeNode '((in . "OUTLINE")))
+		       (dom-node 'feMergeNode '((in . "SourceGraphic"))))))))
     (imdb-initialize)
     (imdb-fetch-profile-picture
      (imdb-mode-person-id (nth 2 elems))
@@ -2590,24 +2612,26 @@ output directories whose names match REGEXP."
 			     :font-size 120
 			     :stroke "black"
 			     :fill color
-			     :stroke-width 4
+			     :stroke-width 0
 			     :font-weight "bold"
 			     :font-family "Futura"
 			     :y text-start
-			     :x 30)
+			     :x 30
+			     :filter "url(#outline)")
 		(cl-incf text-start 160))
        (with-temp-buffer
 	 (svg-print svg)
-	 (call-process-region (point-min) (point-max)
-			      "convert" nil nil nil
-			      "-background" "transparent"
-			      "-depth" "8" 
-			      "svg:-" "bgra:/tmp/mpv.bgra")
+	 ;; Apparently it SVG conversion doesn't work as well unless
+	 ;; you write to a file first, so don't use `call-process-region'.
+	 (write-region (point-min) (point-max) "/tmp/mpv.svg")
+	 (call-process "convert" nil nil nil
+		       "-background" "transparent"
+		       "-depth" "8" 
+		       "/tmp/mpv.svg" "bgra:/tmp/mpv.bgra")
 	 (when screenshot
-	   (call-process-region (point-min) (point-max)
-				"convert" nil nil nil
-				"-background" "transparent"
-				"svg:-" "/tmp/mpv.jpg")))
+	   (call-process "convert" nil nil nil
+			 "-background" "transparent"
+			 "/tmp/mpv.svg" "/tmp/mpv.jpg")))
        (movie--overlay-card "/tmp/mpv.bgra" width height)))))
 
 (provide 'movie)
