@@ -2648,14 +2648,16 @@ Returns the name of the filter."
 	 ;; Apparently it SVG conversion doesn't work as well unless
 	 ;; you write to a file first, so don't use `call-process-region'.
 	 (write-region (point-min) (point-max) "/tmp/mpv.svg")
+	 (call-process "rsvg-convert" nil nil nil
+		       "--output=/tmp/mpv.png" "/tmp/mpv.svg")
 	 (call-process "convert" nil nil nil
 		       "-background" "transparent"
 		       "-depth" "8" 
-		       "/tmp/mpv.svg" "bgra:/tmp/mpv.bgra")
+		       "/tmp/mpv.png" "bgra:/tmp/mpv.bgra")
 	 (when screenshot
 	   (call-process "convert" nil nil nil
 			 "-background" "transparent"
-			 "/tmp/mpv.svg" "/tmp/mpv.jpg")))
+			 "/tmp/mpv.png" "/tmp/mpv.jpg")))
        (movie--overlay-card "/tmp/mpv.bgra" width height)))))
 
 (defun movie--test ()
