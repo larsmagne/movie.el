@@ -2230,13 +2230,20 @@ output directories whose names match REGEXP."
 	(?2 "25.00")
 	(?9 "29.97"))))))
   (call-process "xrandr" nil nil nil
-		"--output" "HDMI-0"
+		"--output" (movie--find-output)
 		"--mode" "3840x2160"
 		"--rate" rate)
   (with-temp-buffer
     (call-process "xrandr" nil t)
     (write-region (point-min) (point-max) "/tmp/nxr"))
   (message "Set frame rate to %s" rate))
+
+(defun movie--find-output ()
+  (with-temp-buffer
+    (call-process "xrandr" nil t)
+    (goto-char (point-min))
+    (and (re-search-forward "^\\([^ ]+\\) connected" nil t)
+	 (match-string 1))))
 
 (defun movie--fps (file)
   (with-temp-buffer
