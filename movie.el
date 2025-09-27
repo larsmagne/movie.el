@@ -2602,8 +2602,10 @@ Returns the name of the filter."
 (defun movie--create-actor-card-1 (elems &optional screenshot)
   (let* ((width (movie--display-size "width"))
 	 (height (movie--display-size "height"))
+	 (screen-width (display-pixel-width))
 	 (svg (svg-create width height))
-	 (text-start (- height (* 2 120)))
+	 (font-size (* 120 (/ (float width) screen-width)))
+	 (text-start (- height (* 2 font-size)))
 	 (pid (car elems))
 	 filter)
     ;; Sometimes Gemini returns the person id without the "nm".
@@ -2650,7 +2652,7 @@ Returns the name of the filter."
 			    "white")
 		      (list (nth 3 elems) "grey"))
 		do (svg-text svg (format "%s" text)
-			     :font-size 120
+			     :font-size font-size
 			     :stroke "black"
 			     :fill color
 			     :stroke-width 0
@@ -2659,7 +2661,7 @@ Returns the name of the filter."
 			     :y text-start
 			     :x 30
 			     :filter filter)
-		(cl-incf text-start 160))
+		(cl-incf text-start (* font-size 1.3)))
        (with-temp-buffer
 	 (svg-print svg)
 	 ;; Apparently it SVG conversion doesn't work as well unless
