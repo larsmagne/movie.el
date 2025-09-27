@@ -2595,6 +2595,7 @@ Returns the name of the filter."
       (setq pid (concat "nm" pid)))
     ;; Create an outline around the text.
     (setq filter (svg-outline svg 3 "black" 1))
+    (require 'imdb-mode)
     (imdb-initialize)
     (imdb-fetch-profile-picture
      (imdb-mode-person-id (nth 2 elems))
