@@ -896,7 +896,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (setq command (append command (list "-geometry"
 					  (format "+%d+0" start-x))))))
   (setq movie-rotate-audio 0)
-  (with-environment-variables (("MPV_VERBOSE" "1"))
+  (with-environment-variables (("MPV_VERBOSE" "1")
+			       ("NO_COLOR" "1")
+			       ("TERM" "dump"))
     (with-current-buffer (get-buffer-create "*mplayer*")
       (when (file-exists-p "/tmp/mpv-socket")
 	(delete-file "/tmp/mpv-socket"))
@@ -990,7 +992,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
     (unless title
       (setq title (file-name-sans-extension (file-name-nondirectory file)))
       (setq title (replace-regexp-in-string "-title.*" "" title))
-      (setq title (movie-prefix title)))
+      (setq title (or (movie-prefix title) title)))
     title))
 
 (defun movie-play-1 (player)
@@ -2449,6 +2451,7 @@ output directories whose names match REGEXP."
 		 ,(or time 5000)]))))
 
 (defun movie--overlay-card (file width height)
+  (message "Overlaying %s" file)
   (movie-send-mpv-command
    `((command . ["overlay-add"
 		 0 0 0 ,file 0 "bgra"
@@ -2462,6 +2465,10 @@ output directories whose names match REGEXP."
   "Query an LLM about the actor currently on the screen."
   (interactive)
   (movie--mpv-osd "Querying..." 1000)
+  (movie-send-mpv-command
+   `((command . ["get_property" "osd-width"])))
+  (movie-send-mpv-command
+   `((command . ["get_property" "osd-height"])))
   (when movie--actor-timer
     (cancel-timer movie--actor-timer))
   (let* ((movie (movie--file-title movie--file-currently-playing))
@@ -2480,7 +2487,7 @@ output directories whose names match REGEXP."
 		(setq movie--actor-timer (run-at-time 0.1 nil func))))))
     (movie-send-mpv-command
      `((command . ["screenshot" "video"])))
-    (setq movie--actor-timer (run-at-time 0.1 nil func))
+    (setq movie--actor-timer (run-at-time 0.5 nil func))
     nil))
 
 (defun movie-query-actor (movie image &optional is-movie)
@@ -2583,9 +2590,18 @@ Returns the name of the filter."
 		(dom-node 'feMergeNode `((in . "SourceGraphic"))))))
     (format "url(#%s)" id)))
 
+(defun movie--display-size (type)
+  (with-current-buffer "*mpv*"
+    (goto-char (point-max))
+    (and (re-search-backward "^{\"data\":\\([0-9]+\\)" nil t)
+	 (if (equal type "width")
+	     (and (re-search-backward "^{\"data\":\\([0-9]+\\)" nil t)
+		  (string-to-number (match-string 1)))
+	   (string-to-number (match-string 1))))))
+
 (defun movie--create-actor-card-1 (elems &optional screenshot)
-  (let* ((width (display-pixel-width))
-	 (height (display-pixel-height))
+  (let* ((width (movie--display-size "width"))
+	 (height (movie--display-size "height"))
 	 (svg (svg-create width height))
 	 (text-start (- height (* 2 120)))
 	 (pid (car elems))
