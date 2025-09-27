@@ -2658,6 +2658,37 @@ Returns the name of the filter."
 			 "/tmp/mpv.svg" "/tmp/mpv.jpg")))
        (movie--overlay-card "/tmp/mpv.bgra" width height)))))
 
+(defun movie--test ()
+  (let* ((width 1469)
+	 (height 1064)
+	 (svg (svg-create width height))
+	 (text "Beat the Devil")
+	 filter)
+    ;; Create an outline around the text.
+    (setq filter (svg-outline svg 10 "black" 0.5))
+    (svg-embed svg "/tmp/a.jpg" "image/jpeg" nil
+	       :width width
+	       :height height
+	       :x 0
+	       :y 0)
+    (svg-text svg text
+	      :font-size 120
+	      :stroke "black"
+	      :fill "white"
+	      :stroke-width 0
+	      :font-weight "bold"
+	      :font-family "Futura"
+	      :y 200
+	      :x 30
+	      :filter filter
+	      )
+    (with-temp-buffer
+      (svg-print svg)
+      (write-region (point-min) (point-max) "/tmp/mpv.svg")
+      (call-process "/usr/private/bin/convert" nil nil nil
+		    "-background" "transparent"
+		    "/tmp/mpv.svg" "/tmp/test.jpg"))))
+
 (provide 'movie)
 
 ;;; movie.el ends here
