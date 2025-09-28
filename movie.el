@@ -898,7 +898,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (setq movie-rotate-audio 0)
   (with-environment-variables (("MPV_VERBOSE" "1")
 			       ("NO_COLOR" "1")
-			       ("TERM" "dump"))
+			       ("TERM" "dumb"))
     (with-current-buffer (get-buffer-create "*mplayer*")
       (when (file-exists-p "/tmp/mpv-socket")
 	(delete-file "/tmp/mpv-socket"))
