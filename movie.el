@@ -1547,7 +1547,16 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 			(string-replace " + " ", " (plist-get imdb :director))
 			(plist-get imdb :year)
 			(plist-get imdb :country)
-			(or (plist-get imdb :id) ""))))
+			(or (plist-get imdb :id) "")))
+	(when (plist-get imdb :image)
+	  (with-temp-buffer
+	    (set-buffer-multibyte nil)
+	    (insert (plist-get
+		     (cdr (get-text-property 0 'display
+					     (plist-get imdb :image)))
+		     :data))
+	    (write-region (point-min) (point-max)
+			  (expand-file-name "sleeve.jpg" directory)))))
       (insert
        (format
 	"Genre: %s\nRecorded: %s\n"
