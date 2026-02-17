@@ -2299,7 +2299,7 @@ output directories whose names match REGEXP."
 		"overrides" "{'Gdk/WindowScalingFactor': <2>}"))
 
 (defun movie--get-poster (id sleeve)
-  (when-let ((image (imdb-get-image-and-country id nil t)))
+  (when-let ((image (imdb-get-image-and-country id t)))
     (with-temp-buffer
       (set-buffer-multibyte nil)
       (insert image)
@@ -2569,36 +2569,6 @@ output directories whose names match REGEXP."
       ;; Didn't recognize anything.
       (movie--mpv-osd data))))
 
-(defvar svg--id-counter 1)
-
-(defun svg-outline (svg size color opacity)
-  "Create an outline filter of SIZE, using COLOR and OPACITY.
-Returns the name of the filter."
-  (let* ((counter (cl-incf svg--id-counter))
-	 (id (format "outline-%d" counter)))
-    (dom-append-child
-     svg
-     (dom-node 'filter `((id . ,id))
-	       (dom-node 'feMorphology
-			 `((in . "SourceAlpha")
-			   (result . ,(format "DILATED-%d" counter))
-			   (operator . "dilate")
-			   (radius . ,(format "%s" size))))
-	       (dom-node 'feFlood
-			 `((flood-color . ,color)
-			   (flood-opacity . ,(format "%s" opacity))
-			   (result . ,(format "FLOOD-%d" counter))))
-	       (dom-node 'feComposite
-			 `((in . ,(format "FLOOD-%d" counter))
-			   (in2 . ,(format "DILATED-%d" counter))
-			   (operator . "in")
-			   (result . ,(format "OUTLINE-%d" counter))))
-	       (dom-node
-		'feMerge nil
-		(dom-node 'feMergeNode `((in . ,(format "OUTLINE-%d" counter))))
-		(dom-node 'feMergeNode `((in . "SourceGraphic"))))))
-    (format "url(#%s)" id)))
-
 (defun movie--display-size (type)
   (with-current-buffer "*mpv*"
     (goto-char (point-max))
@@ -2710,8 +2680,7 @@ Returns the name of the filter."
 	      :font-family "Futura"
 	      :y 200
 	      :x 30
-	      :filter filter
-	      )
+	      :filter filter)
     (with-temp-buffer
       (svg-print svg)
       (write-region (point-min) (point-max) "/tmp/mpv.svg")
