@@ -1632,8 +1632,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-one-directory ()
   "Move files from (2)-like subdirectories to the current directory."
   (interactive)
-  (dolist (sub (directory-files default-directory t " ([0-9]+)$"))
-    (let ((part (and (string-match "([0-9]+)$" sub)
+  (dolist (sub (directory-files default-directory t " ([0-9]+\\(-[0-9]+\\)?)$"))
+    (let ((part (and (string-match "([0-9]+\\(-[0-9]+\\)?)$" sub)
 		     (match-string 0 sub))))
       (dolist (file (directory-files sub t))
 	(when (file-regular-p file)
