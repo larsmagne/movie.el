@@ -2346,7 +2346,7 @@ output directories whose names match REGEXP."
     (cadr
      (read-multiple-choice
       "Jump to dir: "
-      '((?b "/tv/Buffy/")
+      '((?b "/tv/Space9/")
 	(?d "/dvd/")
 	(?t "/tv/torrent/")
 	(?s "/tv/Series/")
