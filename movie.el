@@ -344,7 +344,7 @@ Otherwise, goto the start of the buffer."
 (defun movie-biggest-file-data (dir)
   (when (file-exists-p (plist-get dir :file))
     (let ((files nil))
-      (dolist (file (directory-files (plist-get dir :file) t))
+      (dolist (file (ignore-errors (directory-files (plist-get dir :file) t)))
 	(push (cons (nth 7 (file-attributes file)) file) files))
       (car (sort files (lambda (f1 f2)
 			 (> (car f1) (car f2))))))))
