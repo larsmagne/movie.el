@@ -121,7 +121,8 @@
 		    (t
 		     default-directory))
 		   nil t))))
-					  
+
+  (movie--initialize)
   ;; If called in the /dvd directory, just display films that are
   ;; unseen.
   (when (and (null match)
@@ -879,23 +880,28 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (format "%s" (max 0 (- pos 2)))))))
 
 (defun movie-find-position-from-mplayer (file &optional no-skip)
-  (when (and (file-exists-p movie-positions-file)
-	     (or (not (equal (system-name) "quimbies"))
-		 (string-match "/tv/\\|/dvd/\\|http:\\|^/run" file))
-	     (not (string-match "/title_"  file))
-	     (not (equal file "/tv/live")))
-    (with-temp-buffer
-      (let ((coding-system-for-read 'utf-8))
-	(insert-file-contents movie-positions-file)
-	(goto-char (point-max))
-	(when (search-backward
-	       (concat " " (file-name-nondirectory file) "\n") nil t)
-	  (beginning-of-line)
-	  (and (looking-at "[^ \n]+ \\([0-9]+\\)")
-	       ;; Skip backwards two seconds to avoid missing a second.
-	       (format "%d" (max (- (string-to-number (match-string 1))
-				    (if no-skip 0 2))
-				 0))))))))
+  (or
+   (when-let ((position (caar (movie-sel "select position from program where name = ?"
+					 file))))
+     ;; Skip backwards two seconds to avoid missing a second.
+     (format "%d" (max (- position (if no-skip 0 2)) 0)))
+   (when (and (file-exists-p movie-positions-file)
+	      (or (not (equal (system-name) "quimbies"))
+		  (string-match "/tv/\\|/dvd/\\|http:\\|^/run" file))
+	      (not (string-match "/title_"  file))
+	      (not (equal file "/tv/live")))
+     (with-temp-buffer
+       (let ((coding-system-for-read 'utf-8))
+	 (insert-file-contents movie-positions-file)
+	 (goto-char (point-max))
+	 (when (search-backward
+		(concat " " (file-name-nondirectory file) "\n") nil t)
+	   (beginning-of-line)
+	   (and (looking-at "[^ \n]+ \\([0-9]+\\)")
+		;; Skip backwards two seconds to avoid missing a second.
+		(format "%d" (max (- (string-to-number (match-string 1))
+				     (if no-skip 0 2))
+				  0)))))))))
 
 (defun movie-find-geometry ()
   (let ((total-width (x-display-pixel-width))
@@ -1014,10 +1020,13 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (setq title (or (movie-prefix title) title)))
     title))
 
+(defvar movie--start-view-time nil)
+
 (defun movie-play-1 (player)
   (setq movie-current-audio-device 0
 	movie-anim-state nil
-	movie--file-currently-playing (car (last player)))
+	movie--file-currently-playing (car (last player))
+	movie--start-view-time (time-convert nil 'integer))
   (when-let ((skip (and (not movie-inhibit-positions)
 			(movie-find-position
 			 (or movie-file-id
@@ -1097,6 +1106,18 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	     (position (cdr (assq 'data json)))
 	     (coding-system-for-read 'utf-8)
 	     (coding-system-for-write 'utf-8))
+	(when-let ((id (caar (movie-sel "select id from program where name = ?" file))))
+	  (movie-exec "update program set position = ? where id = ?"
+		      position id)
+	  ;; Log more details about the viewing.
+	  (movie-exec
+	   "insert into view(id, start, end, duration, position) values (?, ?, ?, ?, ?)"
+	   id
+	   (format-time-string "%FT%T" movie--start-view-time)
+	   (format-time-string "%FT%T")
+	   (- (time-convert nil 'integer) movie--start-view-time)
+	   position))
+	;; Legacy logging.
 	(with-temp-buffer
 	  (insert (format "%s %s %s\n"
 			  (format-time-string "%FT%T")
@@ -1499,8 +1520,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	      :subtitles (mapcar #'car
 				 (movie-sel "select language from subtitle where id = ?"
 					    (car data)))
-	      :audio (mapcar #'car
-			     (movie-sel "select language from audio where id = ?"
+	      :audio (mapcar (lambda (elem)
+			       (cons (car elem) (cadr elem)))
+			     (movie-sel "select aid, language from audio where id = ?"
 					(car data)))))
       ;; Otherwise, use mediainfo to synthesize them.
       (with-temp-buffer
@@ -1882,6 +1904,7 @@ In /tv/links/other-unseen."
 					    (plist-get data :epspec)))))
       (message "Downloading %s" (string-join names "\n")))))
 
+;;; FIXME use view/program, but we have to select sloppily.
 (defun movie-last-seen (file &optional edit)
   "Say when the series under point was last seen.
 If EDIT (the prefix), allow editing"
@@ -2059,6 +2082,7 @@ If EDIT (the prefix), allow editing"
 	   do (setq film (concat film " "))
 	   finally (cl-return dir)))
 
+;;; FIXME use view/program.
 (defun movie-goto-last-series ()
   "Go to the /dvd last series directory."
   (interactive)
@@ -2159,9 +2183,9 @@ output directories whose names match REGEXP."
 (defun movie-reload ()
   "Reload movie.el."
   (interactive)
-  (load "~/src/movie.el/movie.el")
-  (load "~/src/bookiez/query-assistant.el")
   (load "~/.emacs")
+  (load "~/src/movie.el/movie.el")
+  (load "~/src/query-assistant.el/query-assistant.el")
   (message "Reloaded")
   ;;(movie-reload-play)
   ;;(raise-frame)
