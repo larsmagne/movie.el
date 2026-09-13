@@ -391,7 +391,9 @@ Otherwise, goto the start of the buffer."
    (lambda (object column table)
      (let ((dvdp (and (string-match "^/dvd/\\|^/flash/movies\\|^/mnt/dos\\|/home/larsi/dvd"
 				    (plist-get object :file))
-		      (plist-get object :directoryp))))
+		      (plist-get object :directoryp)))
+	   (duration (caar (movie-sel "select duration from program where name = ?"
+				      (plist-get object :file)))))
        (pcase (vtable-column table column)
 	 ("Poster"
 	  (and
@@ -420,6 +422,10 @@ Otherwise, goto the start of the buffer."
 				   (cdr (movie-biggest-file-data object))))))
 		   (create-image png nil nil
 				 :scale movie-image-scale))
+		  ((when-let ((thumb (caar (movie-sel "select thumbnail from program where name = ?"
+						      (plist-get object :file)))))
+		     (create-image thumb 'png t
+				   :scale movie-image-scale)))
 		  (t
 		   (create-image "~/src/movie.el/empty.png" nil nil
 				 :scale movie-image-scale))))))))
@@ -435,6 +441,8 @@ Otherwise, goto the start of the buffer."
 	      (if (> (plist-get object :length) (* 30 60))
 		  (propertize str 'face '(:background "#006000"))
 		str)))
+	   (duration
+	    (format "%02d:%02d" (/ duration 60) (% (truncate duration) 60)))
 	   (t
 	    (/ (or (plist-get object :size) -1) 1024 1024))))
 	 ("Info"
@@ -445,6 +453,8 @@ Otherwise, goto the start of the buffer."
 	    (format " %d " (/ (movie--directory-size object) 1024.0 1024)))
 	   ((eq order 'country)
 	    (plist-get object :country))
+	   (duration
+	    (/ (plist-get object :size) 1024 1024))
 	   (t "")))
 	 ("Director"
 	  (plist-get object :director))
@@ -827,7 +837,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie--find-best-audio (stats)
   (let* ((case-fold-search t))
     (cl-loop for (aid . lang) in (plist-get stats :audio)
-	     when (string-match "english" lang)
+	     when (string-match "english\\|\\ben\\b" lang)
 	     return aid)))  
 
 (defun movie--find-best-subtitle (stats)
@@ -1482,43 +1492,38 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   (or (when-let ((stats (movie-get-stats (file-name-directory file))))
 	(cdr (assoc (file-name-nondirectory file)
 		    (cdr (plist-get stats 'tracks)))))
+      ;; Perhaps they're in the SQLite database?
+      (when-let ((data (car (movie-sel "select id, interlace from program where name = ?"
+				       file))))
+	(list :interlace (cadr data)
+	      :subtitles (mapcar #'car
+				 (movie-sel "select language from subtitle where id = ?"
+					    (car data)))
+	      :audio (mapcar #'car
+			     (movie-sel "select language from audio where id = ?"
+					(car data)))))
       ;; Otherwise, use mediainfo to synthesize them.
       (with-temp-buffer
 	(with-environment-variables (("LC_ALL" (getenv "LANG")))
-	  (call-process "mediainfo" nil t nil file))
-	(goto-char (point-min))
-	(list :interlaced
-	      (save-excursion
-		(re-search-forward "^Scan type.*Interlace" nil t))
-	      :subtitles
-	      (save-excursion
-		(cl-loop
-		 while (re-search-forward "\n\nText" nil t)
-		 collect
-		 (let ((lang
-			(save-excursion
-			  (and
-			   (re-search-forward "^Language.*: \\(.*\\)"
-					      (movie--mediainfo-block-end) t)
-			   (match-string 1))))
-		       (title
-			(save-excursion
-			  (and
-			   (re-search-forward "^Title.*: \\(.*\\)"
-					      (movie--mediainfo-block-end) t)
-			   (match-string 1)))))
-		   (string-join (list lang title) " "))))
-	      :audio
-	      (save-excursion
-		(cl-loop
-		 while (re-search-forward "\n\nAudio\\( #\\([0-9]+\\)\\)?" nil t)
-		 collect
-		 (cons (or (match-string 2) "1")
-		       (save-excursion
-			 (and
-			  (re-search-forward "^Language.*: \\(.*\\)"
-					     (movie--mediainfo-block-end) t)
-			  (match-string 1))))))))))
+	  (call-process "mediainfo" nil t nil "--Output=XML" file))
+	(let ((xml (libxml-parse-xml-region (point-min) (point-max))))
+	  (list :interlaced
+		(equal (dom-text (dom-by-tag xml 'ScanType)) "Interlaced")
+		:subtitles
+		(cl-loop for track in (dom-by-tag xml 'track)
+			 when (equal (dom-attr track 'type) "Text")
+			 collect (concat (dom-text (dom-by-tag track 'Language))
+					 " "
+					 (dom-text (dom-by-tag track 'Title))))
+		:audio
+		(cl-loop for track in (dom-by-tag xml 'track)
+			 when (equal (dom-attr track 'type) "Audio")
+			 collect (cons (dom-text (dom-by-tag track 'ID))
+				       (dom-text (dom-by-tag track 'Language))))
+		:width (string-to-number  (dom-text (dom-by-tag xml 'Width)))
+		:height (string-to-number (dom-text (dom-by-tag xml 'Height)))
+		:duration (string-to-number (dom-text (dom-by-tag xml 'Duration)))
+		:fps (string-to-number (dom-text (dom-by-tag xml 'FrameRate))))))))
 
 (defun movie--mediainfo-block-end ()
   (save-excursion
@@ -2643,14 +2648,15 @@ output directories whose names match REGEXP."
 (defvar movie--db nil)
 
 (defun movie--initialize ()
-  (unless movie--db
-    (setq movie--db (sqlite-open
-		     (expand-file-name "movies.sqlite" movie-positions-data-directory)))
+  (let ((db-file (expand-file-name "movies.sqlite" movie-positions-data-directory)))
+    (when (or (not movie--db)
+	      (not (file-exists-p db-file)))
+      (setq movie--db (sqlite-open db-file))
 
-    (movie-exec "create table if not exists program (id integer primary key autoincrement, status text default 'unseen', position number default 0, deleted bool default false, name text, registered_time datetime, thumbnail blob, interlace bool, fps number, size number, duration number, width number, height number)")
-    (movie-exec "create table if not exists view (id integer, start datetime, end datetime, duration number, position number)")
-    (movie-exec "create table if not exists subtitle (id integer, language text)")
-    (movie-exec "create table if not exists audio (id integer, language text)")))
+      (movie-exec "create table if not exists program (id integer primary key autoincrement, status text default 'unseen', position number default 0, deleted bool default false, name text, registered_time datetime, thumbnail blob, interlace bool, fps number, size number, duration number, width number, height number)")
+      (movie-exec "create table if not exists view (id integer, start datetime, end datetime, duration number, position number)")
+      (movie-exec "create table if not exists subtitle (id integer, language text)")
+      (movie-exec "create table if not exists audio (id integer, aid text, language text)"))))
 
 (defun movie-sel (statement &rest args)
   (sqlite-select movie--db statement args))
@@ -2664,8 +2670,7 @@ output directories whose names match REGEXP."
 		 movie-program-directory
 		 "\\.\\(mkv\\|mpeg\\|mpg\\|avi\\|wmv\\|mp4\\|xvid\\|mov\\|rmvb\\|divx\\)\\'"
 		 nil t))
-    (let ((atts (file-attributes file))
-	  thumbnail)
+    (let ((atts (file-attributes file)))
       (when (and (> (file-attribute-size atts) 0)
 		 (not (file-directory-p file))
 		 ;; Skip existing.
@@ -2674,10 +2679,35 @@ output directories whose names match REGEXP."
 		 (> (- (float-time) 60)
 		    (float-time (file-attribute-modification-time atts))))
 	(message "Entering %s" file)
-	(with-temp-buffer
-	  (set-buffer-multibyte nil)
+	(let ((stats (movie--stats-data file)))
+	  (movie-exec "insert into program(name, registered_time, thumbnail, interlace, fps, size, duration, width, height) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		      file
+		      (format-time-string "%FT%T")
+		      (propertize (or (movie--thumbnail-file file) "")
+				  'coding-system 'binary)
+		      (plist-get stats :interlace)
+		      (plist-get stats :fps)
+		      (file-attribute-size atts)
+		      (plist-get stats :duration)
+		      (plist-get stats :width)
+		      (plist-get stats :duration))
+	  (let ((id (caar (movie-sel "select id from program where name = ?" file))))
+	    (dolist (subtitle (plist-get stats :subtitles))
+	      (movie-exec "insert into subtitle values (?, ?)"
+			  id subtitle))
+	    (cl-loop for (aid . audio) in (plist-get stats :audio)
+		     do (movie-exec "insert into audio values (?, ?, ?)"
+				    id aid audio))))))))
+
+(defun movie--thumbnail-file (file)
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (let ((buf (generate-new-buffer "*thumb*")))
+      (with-current-buffer buf
+	(set-buffer-multibyte nil))
+      (unwind-protect
 	  (and (zerop
-		(call-process "ffmpeg" nil nil nil
+		(call-process "ffmpeg" nil '(t "/tmp/movie-err") nil
 			      "-i" file
 			      "-r" "30" "-f" "image2pipe"
 			      "-c:v" "png"
@@ -2687,27 +2717,13 @@ output directories whose names match REGEXP."
 			      "pipe:1"))
 	       (zerop
 		(call-process-region (point-min) (point-max)
-				     "convert" t t nil "-scale" "300x"
+				     "convert" nil buf nil "-scale" "300x"
 				     "png:-" "png:-"))
-	       (setq thumbnail (buffer-string)))))
-      (let ((stats (movie--stats-data file)))
-	(movie-exec "insert into program(name, registered_time, thumbnail, interlace, fps, size, duration, width, height) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-		    file
-		    (format-time-string "%FT%T")
-		    thumbnail
-		    (plist-get stats :interlace)
-		    (plist-get stats :fps)
-		    (file-attribute-size atts)
-		    (plist-get stats :duration)
-		    (plist-get stats :width)
-		    (plist-get stats :duration))
-	(let ((id (caar (movie-sel "select id from program where name = ?" file))))
-	  (dolist (subtitle (plist-get stats :subtitles))
-	    (movie-exec "insert into subtitles values (?, ?)"
-			id subtitle))
-	  (cl-loop for (_aid . audio) in  (plist-get stats :audio)
-		   do (movie-exec "insert into audio values (?, ?)"
-				  id audio)))))))
+	       (with-current-buffer buf
+		 (buffer-string)))
+	(kill-buffer buf)
+	(when (file-exists-p "/tmp/movie-err")
+	  (delete-file "/tmp/movie-err"))))))
 
 (provide 'movie)
 
