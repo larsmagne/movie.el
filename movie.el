@@ -1912,7 +1912,6 @@ In /tv/links/other-unseen."
 					    (plist-get data :epspec)))))
       (message "Downloading %s" (string-join names "\n")))))
 
-;;; FIXME use view/program, but we have to select sloppily.
 (defun movie-last-seen (file &optional edit)
   "Say when the series under point was last seen.
 If EDIT (the prefix), allow editing"
@@ -1920,29 +1919,18 @@ If EDIT (the prefix), allow editing"
 		     current-prefix-arg))
   (let* ((data (movie-parse-description (file-name-nondirectory file)))
 	 (name (plist-get data :name))
-	 (case-fold-search t)
 	 results)
     (unless data
       (error "Couldn't parse %s" (file-name-nondirectory file)))
     (when edit
       (setq name (read-string "Look for: " name)))
-    (with-temp-buffer
-      (insert-file-contents movie-positions-file)
-      (goto-char (point-max))
-      (while (and (re-search-backward
-		   (replace-regexp-in-string "[^a-z0-9]" ".*" name)
-		   nil t)
-		  (< (length results) 5))
-	(beginning-of-line)
-	(when (looking-at "[^ \n]+ \\([0-9.]+\\) \\(.*\\)")
-	  (let ((length (string-to-number (match-string 1)))
-		(show (match-string 2)))
-	    (when (and (not (member show results))
-		       (> length 400))
-	      (push show results))))))
+    (setq results
+	  (cl-loop for (name time) in (movie-sel "select name, registered_time from program where sid = ? and (position = 0 or position > 400) order by id desc limit 10"
+						 (movie--sid (plist-get data :name)))
+		   collect (concat time " " name)))
     (if (not results)
 	(message "Not seen %s" name)
-      (message "%s" (mapconcat 'identity (nreverse results) "\n")))))
+      (message "%s" (string-join results "\n")))))
 
 (defun movie-title (movie)
   (replace-regexp-in-string "\\`\\(The\\|A\\) " ""
@@ -2687,7 +2675,7 @@ output directories whose names match REGEXP."
 	      (not (file-exists-p db-file)))
       (setq movie--db (sqlite-open db-file))
 
-      (movie-exec "create table if not exists program (id integer primary key autoincrement, hash text, status text default 'unseen', position number default 0, deleted bool default false, name text, registered_time datetime, thumbnail blob, interlace bool, fps number, size number, duration number, width number, height number)")
+      (movie-exec "create table if not exists program (id integer primary key autoincrement, hash text, status text default 'unseen', position number default 0, deleted bool default false, name text, registered_time datetime, thumbnail blob, interlace bool, fps number, size number, duration number, width number, height number, series, sid, season, episode)")
       (movie-exec "create table if not exists view (id integer, start datetime, end datetime, duration number, position number)")
       (movie-exec "create table if not exists subtitle (id integer, language text)")
       (movie-exec "create table if not exists audio (id integer, aid text, language text)"))))
@@ -2713,8 +2701,9 @@ output directories whose names match REGEXP."
 		 (> (- (float-time) 60)
 		    (float-time (file-attribute-modification-time atts))))
 	(message "Entering %s" file)
-	(let ((stats (movie--stats-data file)))
-	  (movie-exec "insert into program(hash, name, registered_time, thumbnail, interlace, fps, size, duration, width, height) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	(let ((stats (movie--stats-data file))
+	      (desc (movie-parse-description (file-name-nondirectory file))))
+	  (movie-exec "insert into program(hash, name, registered_time, thumbnail, interlace, fps, size, duration, width, height, series, sid, season, episode) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 		      (with-temp-buffer
 			(call-process "b3sum" nil t nil file)
 			(car (split-string (buffer-string))))
@@ -2727,7 +2716,13 @@ output directories whose names match REGEXP."
 		      (file-attribute-size atts)
 		      (plist-get stats :duration)
 		      (plist-get stats :width)
-		      (plist-get stats :duration))
+		      (plist-get stats :duration)
+		      (plist-get desc :name)
+		      (downcase
+		       (replace-regexp-in-string "[^a-zA-Z]" ""
+						 (plist-get desc :name)))
+		      (string-to-number (plist-get desc :season))
+		      (string-to-number (plist-get desc :episode)))
 	  (let ((id (caar (movie-sel "select id from program where name = ?" file))))
 	    (dolist (subtitle (plist-get stats :subtitles))
 	      (movie-exec "insert into subtitle values (?, ?)"
@@ -2761,6 +2756,40 @@ output directories whose names match REGEXP."
 	(kill-buffer buf)
 	(when (file-exists-p "/tmp/movie-err")
 	  (delete-file "/tmp/movie-err"))))))
+
+(defun movie--convert-mplayer-positions ()
+  (with-temp-buffer
+    (insert-file-contents movie-positions-file)
+    (while (re-search-forward "^\\([-0-9T:]+\\) \\([0-9.]+\\) \\(.*\\)" nil t)
+      (let ((time (match-string 1))
+	    (position (string-to-number (match-string 2)))
+	    (name (match-string 3)))
+	;; Filter out URLs.
+	(unless (string-match-p "videoplayback\\|&.*=" name)
+	  (let ((id (caar (movie-sel "select id from program where name = ?" name)))
+		(desc (movie-parse-description name)))
+	    (cond
+	     ;; Just add views.
+	     (id
+	      (movie-exec "update program set position = ? where id = ?"
+			  position id))
+	     ;; It's a series.
+	     (desc
+	      (movie-exec "insert into program(status, name, position, series, sid, season, episode) values (?, ?, ?, ?, ?, ?, ?)"
+			  "seen" name position
+			  (plist-get desc :name)
+			  (movie--sid (plist-get desc :name))
+			  (string-to-number (plist-get desc :season))
+			  (string-to-number (plist-get desc :episode))))
+	     ;; Not a series.
+	     (t
+	      (movie-exec "insert into program(status, name, position) values (?, ?, ?)"
+			  "seen" name position)))
+	    (movie-exec "insert into view(id, end, position) values (?, ?, ?)"
+			id time position)))))))
+
+(defun movie--sid (name)
+  (downcase (replace-regexp-in-string "[^a-zA-Z]" "" name )))
 
 (provide 'movie)
 
