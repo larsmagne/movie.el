@@ -32,6 +32,7 @@
 
 (require 'time-date)
 (require 'imdb)
+(require 'imdb-mode)
 (require 'mkv)
 (require 'subr-x)
 (require 'touchgrid)
@@ -77,7 +78,14 @@
 (defvar movie-picture-directory nil
   "Directory where pictures are taken during movie playing.")
 
-(defvar movie-positions-file "/tv/data/mplayer.positions"
+(defvar movie-program-directory "/tv/"
+  "Directory under which programs are stored.")
+
+(defvar movie-positions-data-directory "/tv/data/"
+  "Directory to store data.")
+
+(defvar movie-positions-file
+  (expand-file-name "mplayer.positions" movie-positions-data-directory)
   "Where viewing positions are stored.")
 
 (defvar movie-inhibit-positions nil
@@ -1503,9 +1511,9 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	      :audio
 	      (save-excursion
 		(cl-loop
-		 while (re-search-forward "\n\nAudio #\\([0-9]+\\)" nil t)
+		 while (re-search-forward "\n\nAudio\\( #\\([0-9]+\\)\\)?" nil t)
 		 collect
-		 (cons (match-string 1)
+		 (cons (or (match-string 2) "1")
 		       (save-excursion
 			 (and
 			  (re-search-forward "^Language.*: \\(.*\\)"
@@ -2631,6 +2639,75 @@ output directories whose names match REGEXP."
 		    "-depth" "8" 
 		    "/tmp/mpv.png" "bgra:/tmp/mpv.bgra"))
     (movie--overlay-card "/tmp/mpv.bgra" width height)))
+
+(defvar movie--db nil)
+
+(defun movie--initialize ()
+  (unless movie--db
+    (setq movie--db (sqlite-open
+		     (expand-file-name "movies.sqlite" movie-positions-data-directory)))
+
+    (movie-exec "create table if not exists program (id integer primary key autoincrement, status text default 'unseen', position number default 0, deleted bool default false, name text, registered_time datetime, thumbnail blob, interlace bool, fps number, size number, duration number, width number, height number)")
+    (movie-exec "create table if not exists view (id integer, start datetime, end datetime, duration number, position number)")
+    (movie-exec "create table if not exists subtitle (id integer, language text)")
+    (movie-exec "create table if not exists audio (id integer, language text)")))
+
+(defun movie-sel (statement &rest args)
+  (sqlite-select movie--db statement args))
+
+(defun movie-exec (statement &rest args)
+  (sqlite-execute movie--db statement args))
+
+(defun movie-scan-for-new-programs ()
+  "Find new programs and add data for them."
+  (dolist (file (directory-files-recursively
+		 movie-program-directory
+		 "\\.\\(mkv\\|mpeg\\|mpg\\|avi\\|wmv\\|mp4\\|xvid\\|mov\\|rmvb\\|divx\\)\\'"
+		 nil t))
+    (let ((atts (file-attributes file))
+	  thumbnail)
+      (when (and (> (file-attribute-size atts) 0)
+		 (not (file-directory-p file))
+		 ;; Skip existing.
+		 (not (movie-sel "select id from program where name = ?" file))
+		 ;; Skip files that are too new; they may still be downloading.
+		 (> (- (float-time) 60)
+		    (float-time (file-attribute-modification-time atts))))
+	(message "Entering %s" file)
+	(with-temp-buffer
+	  (set-buffer-multibyte nil)
+	  (and (zerop
+		(call-process "ffmpeg" nil nil nil
+			      "-i" file
+			      "-r" "30" "-f" "image2pipe"
+			      "-c:v" "png"
+			      ;; Skip 20 seconds into the program.
+			      "-frames:v" "1" "-ss" "20"
+			      "-vf" "thumbnail,scale=iw*sar:ih"
+			      "pipe:1"))
+	       (zerop
+		(call-process-region (point-min) (point-max)
+				     "convert" t t nil "-scale" "300x"
+				     "png:-" "png:-"))
+	       (setq thumbnail (buffer-string)))))
+      (let ((stats (movie--stats-data file)))
+	(movie-exec "insert into program(name, registered_time, thumbnail, interlace, fps, size, duration, width, height) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		    file
+		    (format-time-string "%FT%T")
+		    thumbnail
+		    (plist-get stats :interlace)
+		    (plist-get stats :fps)
+		    (file-attribute-size atts)
+		    (plist-get stats :duration)
+		    (plist-get stats :width)
+		    (plist-get stats :duration))
+	(let ((id (caar (movie-sel "select id from program where name = ?" file))))
+	  (dolist (subtitle (plist-get stats :subtitles))
+	    (movie-exec "insert into subtitles values (?, ?)"
+			id subtitle))
+	  (cl-loop for (_aid . audio) in  (plist-get stats :audio)
+		   do (movie-exec "insert into audio values (?, ?)"
+				  id audio)))))))
 
 (provide 'movie)
 
