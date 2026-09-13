@@ -425,7 +425,7 @@ Otherwise, goto the start of the buffer."
 				 :scale movie-image-scale))
 		  ((when-let ((thumb (caar (movie-sel "select thumbnail from program where name = ?"
 						      (plist-get object :file)))))
-		     (create-image thumb 'png t
+		     (create-image thumb 'webp t
 				   :scale movie-image-scale)))
 		  (t
 		   (create-image "~/src/movie.el/empty.png" nil nil
@@ -726,6 +726,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-play-cropped (file)
   (interactive (list (movie-current-file)))
+  (unless (file-exists-p file)
+    (user-error "File %s doesn't exist" file))
   (movie-play-1 (append movie-player movie-crop (list file))))
 
 (defun movie-prefixed-action ()
@@ -788,6 +790,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-play-high-volume (file)
   (interactive (list (movie-current-file)))
+  (unless (file-exists-p file)
+    (user-error "File %s doesn't exist" file))
   (movie-play-1 (append movie-player movie-high-volume (list file))))
 
 (defun movie-possible-subs (file)
@@ -813,6 +817,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 
 (defun movie-play (file)
   (interactive (list (movie-current-file)))
+  (unless (file-exists-p file)
+    (user-error "File %s doesn't exist" file))
   (let ((subs (movie-possible-subs file))
 	(movie-player (copy-sequence movie-player)))
     (dolist (sub subs)
@@ -854,6 +860,8 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
   
 (defun movie-play-simple (file)
   (interactive (list (movie-current-file)))
+  (unless (file-exists-p file)
+    (user-error "File %s doesn't exist" file))
   (movie-play-1 (append movie-player (list file))))
 
 (defun movie-find-position (file &optional no-skip)
@@ -2259,6 +2267,8 @@ output directories whose names match REGEXP."
 		(let ((coding-system-for-read 'utf-8))
 		  (insert-file-contents "/tv/data/current-file")
 		  (buffer-string)))))
+    (unless (file-exists-p file)
+      (user-error "File %s doesn't exist" file))
     (movie-find-file file)))
 
 (defun movie-change-rate-current (file)
@@ -2677,7 +2687,7 @@ output directories whose names match REGEXP."
 	      (not (file-exists-p db-file)))
       (setq movie--db (sqlite-open db-file))
 
-      (movie-exec "create table if not exists program (id integer primary key autoincrement, status text default 'unseen', position number default 0, deleted bool default false, name text, registered_time datetime, thumbnail blob, interlace bool, fps number, size number, duration number, width number, height number)")
+      (movie-exec "create table if not exists program (id integer primary key autoincrement, hash text, status text default 'unseen', position number default 0, deleted bool default false, name text, registered_time datetime, thumbnail blob, interlace bool, fps number, size number, duration number, width number, height number)")
       (movie-exec "create table if not exists view (id integer, start datetime, end datetime, duration number, position number)")
       (movie-exec "create table if not exists subtitle (id integer, language text)")
       (movie-exec "create table if not exists audio (id integer, aid text, language text)"))))
@@ -2704,7 +2714,10 @@ output directories whose names match REGEXP."
 		    (float-time (file-attribute-modification-time atts))))
 	(message "Entering %s" file)
 	(let ((stats (movie--stats-data file)))
-	  (movie-exec "insert into program(name, registered_time, thumbnail, interlace, fps, size, duration, width, height) values (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	  (movie-exec "insert into program(hash, name, registered_time, thumbnail, interlace, fps, size, duration, width, height) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+		      (with-temp-buffer
+			(call-process "b3sum" nil t nil file)
+			(car (split-string (buffer-string))))
 		      file
 		      (format-time-string "%FT%T")
 		      (propertize (or (movie--thumbnail-file file) "")
@@ -2742,7 +2755,7 @@ output directories whose names match REGEXP."
 	       (zerop
 		(call-process-region (point-min) (point-max)
 				     "convert" nil buf nil "-scale" "300x"
-				     "png:-" "png:-"))
+				     "png:-" "webp:-"))
 	       (with-current-buffer buf
 		 (buffer-string)))
 	(kill-buffer buf)
