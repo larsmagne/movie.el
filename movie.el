@@ -2809,6 +2809,53 @@ output directories whose names match REGEXP."
 (defun movie--sid (name)
   (downcase (replace-regexp-in-string "[^a-zA-Z]" "" name )))
 
+(defun movie-list-views (match)
+  "List programs viewed that match MATCH."
+  (interactive "sList matching: ")
+  (let ((matches (movie-sel "select program.id, program.name, view.end, view.position from program, view where program.id = view.id and program.name like ? order by view.end"
+			    (concat "%" match "%"))))
+    (unless matches
+      (user-error "No match for %s" match))
+    (switch-to-buffer "*Views*")
+    (erase-buffer)
+    (make-vtable
+     :columns `(( :name "Poster"
+		  :max-width ,(format "%dpx" (* 100 (image-compute-scaling-factor)))
+		  :displayer
+		  ,(lambda (image max-width _table)
+		     (propertize "*" 'display
+				 (append image `(:max-width ,max-width)))))
+		(:name "Time")
+		(:name "Position")
+		(:name "Title"))
+     :face (if (string-match "Futura" (or (face-font 'default) ""))
+	       'default
+	     'vtable)
+     :objects matches
+     :separator-width 1
+     :getter
+     (lambda (object column table)
+       (pcase (vtable-column table column)
+	 ("Poster"
+	  (and
+	   (length< matches 500)
+	   (display-graphic-p)
+	   (cond
+	    ((when-let ((thumb (caar
+				(movie-sel "select thumbnail from program where id = ?"
+					   (car object)))))
+	       (create-image thumb 'webp t
+			     :scale movie-image-scale)))
+	    (t
+	     (create-image "~/src/movie.el/empty.png" nil nil
+			   :scale movie-image-scale)))))
+	 ("Time"
+	  (nth 2 object))
+	 ("Title"
+	  (nth 1 object))
+	 ("Position"
+	  (movie-format-length (nth 3 object))))))))     
+
 (provide 'movie)
 
 ;;; movie.el ends here
