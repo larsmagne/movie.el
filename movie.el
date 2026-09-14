@@ -1888,7 +1888,6 @@ In /tv/links/other-unseen."
 	    :episode (movie-clean-number (match-string 2 desc))
 	    :epspec (match-string 2 desc)))
      (t
-      (message "Unable to parse %s" desc)
       nil))))
 
 (defun movie-clean-number (string)
@@ -2676,9 +2675,15 @@ output directories whose names match REGEXP."
       (setq movie--db (sqlite-open db-file))
 
       (movie-exec "create table if not exists program (id integer primary key autoincrement, hash text, status text default 'unseen', position number default 0, deleted bool default false, name text, registered_time datetime, thumbnail blob, interlace bool, fps number, size number, duration number, width number, height number, series, sid, season, episode)")
+      (movie-exec "create index if not exists programidx1 on program(hash)")
+      (movie-exec "create index if not exists programidx2 on program(name)")
+      (movie-exec "create index if not exists programidx3 on program(sid)")
       (movie-exec "create table if not exists view (id integer, start datetime, end datetime, duration number, position number)")
+      (movie-exec "create index if not exists viewidx1 on view(id)")
       (movie-exec "create table if not exists subtitle (id integer, language text)")
-      (movie-exec "create table if not exists audio (id integer, aid text, language text)"))))
+      (movie-exec "create index if not exists subtitleidx1 on subtitle(id)")
+      (movie-exec "create table if not exists audio (id integer, aid text, language text)")
+      (movie-exec "create index if not exists audioidx1 on audio(id)"))))
 
 (defun movie-sel (statement &rest args)
   (sqlite-select movie--db statement args))
@@ -2701,35 +2706,47 @@ output directories whose names match REGEXP."
 		 (> (- (float-time) 60)
 		    (float-time (file-attribute-modification-time atts))))
 	(message "Entering %s" file)
-	(let ((stats (movie--stats-data file))
-	      (desc (movie-parse-description (file-name-nondirectory file))))
-	  (movie-exec "insert into program(hash, name, registered_time, thumbnail, interlace, fps, size, duration, width, height, series, sid, season, episode) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-		      (with-temp-buffer
-			(call-process "b3sum" nil t nil file)
-			(car (split-string (buffer-string))))
-		      file
-		      (format-time-string "%FT%T")
-		      (propertize (or (movie--thumbnail-file file) "")
-				  'coding-system 'binary)
-		      (plist-get stats :interlace)
-		      (plist-get stats :fps)
-		      (file-attribute-size atts)
-		      (plist-get stats :duration)
-		      (plist-get stats :width)
-		      (plist-get stats :duration)
-		      (plist-get desc :name)
-		      (downcase
-		       (replace-regexp-in-string "[^a-zA-Z]" ""
-						 (plist-get desc :name)))
-		      (string-to-number (plist-get desc :season))
-		      (string-to-number (plist-get desc :episode)))
-	  (let ((id (caar (movie-sel "select id from program where name = ?" file))))
-	    (dolist (subtitle (plist-get stats :subtitles))
-	      (movie-exec "insert into subtitle values (?, ?)"
-			  id subtitle))
-	    (cl-loop for (aid . audio) in (plist-get stats :audio)
-		     do (movie-exec "insert into audio values (?, ?, ?)"
-				    id aid audio))))))))
+	(let* ((stats (movie--stats-data file))
+	       (hash (with-temp-buffer
+		       (call-process "b3sum" nil t nil file)
+		       (car (split-string (buffer-string)))))
+	       (prev (caar (movie-sel "select id, name from program where hash = ?"
+				      hash)))
+	       (desc (movie-parse-description (file-name-nondirectory file))))
+	  ;; If the file has been moved around, then just update the
+	  ;; entry.  But there may be two instances of the same file,
+	  ;; in which case we keep them separate.
+	  (if (and prev
+		   (not (file-exists-p (cadr prev))))
+	      (movie-exec "update program set name = ? where id = ?"
+			  file (car prev))
+	    ;; New program.
+	    (movie-exec "insert into program(hash, name, registered_time, thumbnail, interlace, fps, size, duration, width, height, series, sid, season, episode) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+			hash
+			file
+			(format-time-string "%FT%T")
+			(propertize (or (movie--thumbnail-file file) "")
+				    'coding-system 'binary)
+			(plist-get stats :interlace)
+			(plist-get stats :fps)
+			(file-attribute-size atts)
+			(plist-get stats :duration)
+			(plist-get stats :width)
+			(plist-get stats :duration)
+			(plist-get desc :name)
+			(and (plist-get desc :name)
+			     (downcase
+			      (replace-regexp-in-string "[^a-zA-Z]" ""
+							(plist-get desc :name))))
+			(string-to-number (or (plist-get desc :season) "0"))
+			(string-to-number (or (plist-get desc :episode) "0")))
+	    (let ((id (caar (movie-sel "select id from program where name = ? order by id desc limit 1" file))))
+	      (dolist (subtitle (plist-get stats :subtitles))
+		(movie-exec "insert into subtitle values (?, ?)"
+			    id subtitle))
+	      (cl-loop for (aid . audio) in (plist-get stats :audio)
+		       do (movie-exec "insert into audio values (?, ?, ?)"
+				      id aid audio)))))))))
 
 (defun movie--thumbnail-file (file)
   (with-temp-buffer
