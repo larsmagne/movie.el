@@ -2694,6 +2694,7 @@ output directories whose names match REGEXP."
 
 (defun movie-scan-for-new-programs ()
   "Find new programs and add data for them."
+  (movie--initialize)
   (dolist (file (directory-files-recursively
 		 movie-program-directory
 		 "\\.\\(mkv\\|mpeg\\|mpg\\|avi\\|wmv\\|mp4\\|xvid\\|mov\\|rmvb\\|divx\\)\\'"
@@ -2812,7 +2813,7 @@ output directories whose names match REGEXP."
 (defun movie-list-views (match)
   "List programs viewed that match MATCH."
   (interactive "sList matching: ")
-  (let ((matches (movie-sel "select program.id, program.name, view.end, view.position from program, view where program.id = view.id and program.name like ? order by view.end"
+  (let ((matches (movie-sel "select program.id, program.name, view.end, view.position, view.duration from program, view where program.id = view.id and program.name like ? order by view.end"
 			    (concat "%" match "%"))))
     (unless matches
       (user-error "No match for %s" match))
@@ -2827,6 +2828,7 @@ output directories whose names match REGEXP."
 				 (append image `(:max-width ,max-width)))))
 		(:name "Time")
 		(:name "Position")
+		(:name "Duration")
 		(:name "Title"))
      :face (if (string-match "Futura" (or (face-font 'default) ""))
 	       'default
@@ -2853,6 +2855,10 @@ output directories whose names match REGEXP."
 	  (nth 2 object))
 	 ("Title"
 	  (nth 1 object))
+	 ("Duration"
+	  (if (nth 4 object)
+	      (movie-format-length (nth 4 object))
+	    ""))
 	 ("Position"
 	  (movie-format-length (nth 3 object))))))))     
 
