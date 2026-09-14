@@ -379,7 +379,7 @@ Otherwise, goto the start of the buffer."
 	      (:name "Info")
 	      (:name "Director" :max-width 20)
 	      (:name "Title"))
-   :face (if (string-match "Futura" (face-font 'default))
+   :face (if (string-match "Futura" (or (face-font 'default) ""))
 	     'default
 	   'vtable)
    :keymap (define-keymap
@@ -399,6 +399,7 @@ Otherwise, goto the start of the buffer."
 	 ("Poster"
 	  (and
 	   (length< files 500)
+	   (display-graphic-p)
 	   (let ((sleeve (and dvdp
 			      (expand-file-name
 			       "sleeve.jpg" (plist-get object :file)))))
