@@ -2711,8 +2711,8 @@ output directories whose names match REGEXP."
 	       (hash (with-temp-buffer
 		       (call-process "b3sum" nil t nil file)
 		       (car (split-string (buffer-string)))))
-	       (prev (caar (movie-sel "select id, name from program where hash = ?"
-				      hash)))
+	       (prev (car (movie-sel "select id, name from program where hash = ?"
+				     hash)))
 	       (desc (movie-parse-description (file-name-nondirectory file))))
 	  ;; If the file has been moved around, then just update the
 	  ;; entry.  But there may be two instances of the same file,
