@@ -2813,12 +2813,24 @@ output directories whose names match REGEXP."
 (defun movie-list-views (match)
   "List programs viewed that match MATCH."
   (interactive "sList matching: ")
-  (let ((matches (movie-sel "select program.id, program.name, view.end, view.position, view.duration from program, view where program.id = view.id and program.name like ? order by view.end"
+  (let ((matches (movie-sel "select program.id, program.name, view.end, view.position, view.duration from program, view where program.id = view.id desc and program.name like ? order by view.end"
 			    (concat "%" match "%"))))
     (unless matches
       (user-error "No match for %s" match))
-    (switch-to-buffer "*Views*")
+    (movie--list-views matches)))
+
+(defun movie-list-latest-views ()
+  "List the most recent views."
+  (interactive)
+  (movie--list-views
+   (movie-sel "select program.id, program.name, view.end, view.position, view.duration from program, view where program.id = view.id order by view.end desc limit 100")))
+
+(defun movie--list-views (matches)
+  (switch-to-buffer "*Views*")
+  (let ((inhibit-read-only t))
     (erase-buffer)
+    (setq truncate-lines t)
+    (special-mode)
     (make-vtable
      :columns `(( :name "Poster"
 		  :max-width ,(format "%dpx" (* 100 (image-compute-scaling-factor)))
@@ -2860,7 +2872,7 @@ output directories whose names match REGEXP."
 	      (movie-format-length (nth 4 object))
 	    ""))
 	 ("Position"
-	  (movie-format-length (nth 3 object))))))))     
+	  (movie-format-length (nth 3 object))))))))
 
 (provide 'movie)
 
