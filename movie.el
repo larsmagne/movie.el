@@ -1549,7 +1549,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		:audio
 		(cl-loop for track in (dom-by-tag xml 'track)
 			 when (equal (dom-attr track 'type) "Audio")
-			 collect (cons (dom-text (dom-by-tag track 'ID))
+			 collect (cons (dom-text (dom-by-tag track 'StreamOrder))
 				       (dom-text (dom-by-tag track 'Language))))
 		:width (string-to-number  (dom-text (dom-by-tag xml 'Width)))
 		:height (string-to-number (dom-text (dom-by-tag xml 'Height)))
