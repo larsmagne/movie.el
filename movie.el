@@ -2293,17 +2293,25 @@ output directories whose names match REGEXP."
 	 (match-string 1))))
 
 (defun movie--fps (file)
-  (with-temp-buffer
-    (with-environment-variables (("LC_ALL" (getenv "LANG")))
-      (call-process "mediainfo" nil t nil file))
-    (let ((scale 1))
-      (goto-char (point-min))
-      ;; Interlaced films have twice the frame rate.
-      (when (save-excursion
-	      (re-search-forward "Scan type.*: Interlaced" nil t))
-	(setq scale 2))
-      (when (re-search-forward "Frame rate.*: \\([0-9.]+\\)" nil t)
-	(* (string-to-number (match-string 1)) scale)))))
+  (or
+   ;; Use precomputed FPS if it's registered.
+   (when-let ((data (car (movie-sel "select interlace, fps from program where name = ?" file))))
+     (if (car data)
+	 ;; If it's interlaced, then use 2x frame rate.
+	 (+ (cadr data) 2)
+       (cadr data)))
+   ;; If not, do it the hard way.
+   (with-temp-buffer
+     (with-environment-variables (("LC_ALL" (getenv "LANG")))
+       (call-process "mediainfo" nil t nil file))
+     (let ((scale 1))
+       (goto-char (point-min))
+       ;; Interlaced films have twice the frame rate.
+       (when (save-excursion
+	       (re-search-forward "Scan type.*: Interlaced" nil t))
+	 (setq scale 2))
+       (when (re-search-forward "Frame rate.*: \\([0-9.]+\\)" nil t)
+	 (* (string-to-number (match-string 1)) scale))))))
 
 (defvar movie-valid-fps
   '("59.94" "50.00" "29.97" "25.00" "23.98"))
