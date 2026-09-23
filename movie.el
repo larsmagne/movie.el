@@ -1931,7 +1931,7 @@ If EDIT (the prefix), allow editing"
 		   collect (concat time " " name)))
     (if (not results)
 	(message "Not seen %s" name)
-      (message "%s" (string-join results "\n")))))
+      (message "%s" (string-join (seq-take results 7) "\n")))))
 
 (defun movie-title (movie)
   (replace-regexp-in-string "\\`\\(The\\|A\\) " ""
