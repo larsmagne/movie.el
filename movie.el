@@ -2715,7 +2715,9 @@ output directories whose names match REGEXP."
 		 (not (movie-sel "select id from program where name = ?" file))
 		 ;; Skip files that are too new; they may still be downloading.
 		 (> (- (float-time) 60)
-		    (float-time (file-attribute-modification-time atts))))
+		    (float-time (file-attribute-modification-time atts)))
+		 ;; Skip deleted files.
+		 (not (string-match-p "\\.deleted" file)))
 	(message "Entering %s" file)
 	(let* ((stats (movie--stats-data file))
 	       (hash (with-temp-buffer
