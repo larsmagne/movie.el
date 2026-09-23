@@ -588,6 +588,7 @@ Otherwise, goto the start of the buffer."
     (define-key map [backspace] 'movie-delete-file)
     (define-key map [deletechar] 'movie-delete-file)
     (define-key map "V" 'movie-play-vlc-dvd)
+    (define-key map "v" 'movie-list-views)
     (define-key map "F" 'movie-play-current-vob)
     (define-key map "T" 'movie-change-rate)
     (define-key map "r" 'movie-change-rate-current)
@@ -2821,7 +2822,7 @@ output directories whose names match REGEXP."
 (defun movie-list-views (match)
   "List programs viewed that match MATCH."
   (interactive "sList matching: ")
-  (let ((matches (movie-sel "select program.id, program.name, view.end, view.position, view.duration from program, view where program.id = view.id desc and program.name like ? order by view.end"
+  (let ((matches (movie-sel "select program.id, program.name, view.end, view.position, view.duration from program, view where program.id = view.id and program.name like ? order by view.end desc"
 			    (concat "%" match "%"))))
     (unless matches
       (user-error "No match for %s" match))
