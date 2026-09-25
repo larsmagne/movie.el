@@ -1117,7 +1117,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	     (coding-system-for-read 'utf-8)
 	     (coding-system-for-write 'utf-8))
 	(when-let ((id (caar (movie-sel "select id from program where name = ?" file))))
-	  (movie-exec "update program set position = ? where id = ?"
+	  (movie-exec "update program set position = ?, status = 'seen' where id = ?"
 		      position id)
 	  ;; Log more details about the viewing.
 	  (movie-exec
@@ -1926,7 +1926,7 @@ If EDIT (the prefix), allow editing"
     (when edit
       (setq name (read-string "Look for: " name)))
     (setq results
-	  (cl-loop for (name time) in (movie-sel "select name, registered_time from program where sid = ? and (position = 0 or position > 400) order by id desc limit 10"
+	  (cl-loop for (name time) in (movie-sel "select name, registered_time from program where sid = ? and (position = 0 or position > 400) and status = 'seen' order by id desc limit 10"
 						 (movie--sid (plist-get data :name)))
 		   collect (concat time " " name)))
     (if (not results)
