@@ -416,14 +416,15 @@ Otherwise, goto the start of the buffer."
 		  ((file-exists-p png)
 		   (create-image png nil nil
 				 :scale movie-image-scale))
-		  ((and
-		    (plist-get object :directoryp)
-		    (file-exists-p
-		     (setq png
-			   (format "%s.png"
-				   (cdr (movie-biggest-file-data object))))))
-		   (create-image png nil nil
-				 :scale movie-image-scale))
+		  ((plist-get object :directoryp)
+		   (let* ((biggest (movie-biggest-file-data object))
+			  (png (format "%s.png" (cdr biggest))))
+		     (if (file-exists-p png)
+			 (create-image png nil nil :scale movie-image-scale)
+		       (when-let ((thumb (caar (movie-sel "select thumbnail from program where name = ?"
+							  (cdr biggest)))))
+			 (create-image thumb 'webp t
+				       :scale movie-image-scale)))))
 		  ((when-let ((thumb (caar (movie-sel "select thumbnail from program where name = ?"
 						      (plist-get object :file)))))
 		     (create-image thumb 'webp t
