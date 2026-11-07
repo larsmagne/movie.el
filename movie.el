@@ -25,7 +25,7 @@
 
 ;; apt install mpv mediainfo
 
-;; query-assistant.el can be found in https://github.com/larsmagne/bookiez.el
+;; query-assistant.el can be found in https://github.com/larsmagne/query-assistant.el
 ;; It's needed for LLM-assisted actor identification only.
 
 ;;; Code:
@@ -954,10 +954,12 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	 '((command . ["observe_property" 1 "time-pos"])))
 	(when wait
 	  (while (process-live-p mpv)
-	    (sleep-for 0.1))
+	    (sleep-for 0.1)
+	    (thread-yield))
 	  (when movie-after-play-callback
 	    (with-current-buffer (get-buffer-create "*mpv*")
-	      (funcall movie-after-play-callback))))))))
+	      (funcall movie-after-play-callback))))
+	mpv))))
 
 (defun movie--mpv-filter (process string)
   (let ((buffer (process-buffer process)))
@@ -965,7 +967,6 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
       (with-current-buffer buffer
 	(goto-char (point-max))
 	(insert string)))))
-
 
 (defun movie-send-mpv-command (command)
   (with-current-buffer "*mpv*"
@@ -1059,6 +1060,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 		 (if (zerop (length file))
 		     "unknown"
 		   file)))
+	   (buf (current-buffer))
 	   (highest (movie-find-highest-image)))
       (when (file-symlink-p "~/.movie-current")
 	(delete-file "~/.movie-current"))
@@ -1085,14 +1087,19 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	;; mplayer will store the screenshots in the current directory.
 	(setq default-directory dir
 	      movie-recording-directory dir)
-	(movie-start-mpv player t)
-	(movie-update-mplayer-position (car (last player)))
-	(movie-copy-images-higher-than highest dir))
-      (let ((stats (expand-file-name "stats" (file-name-directory path))))
-	(when (file-exists-p stats)
-	  (copy-file stats (expand-file-name "stats" dir) t)))))
-  (movie-update-stats-position (car (last player)))
-  (movie-update-line))
+	(let ((process (movie-start-mpv player)))
+	  (set-process-sentinel
+	   process
+	   (lambda (proc _status)
+	     (movie-update-mplayer-position (car (last player)))
+	     (movie-copy-images-higher-than highest dir)
+	     (let ((stats (expand-file-name
+			   "stats" (file-name-directory path))))
+	       (when (file-exists-p stats)
+		 (copy-file stats (expand-file-name "stats" dir) t)))
+	     (with-current-buffer buf
+	       (movie-update-stats-position (car (last player)))
+	       (movie-update-line)))))))))
 
 (defun movie-update-line ()
   (when-let ((object (vtable-current-object))
@@ -2505,15 +2512,20 @@ output directories whose names match REGEXP."
 				  (string-replace "\n" " " string))
 		 ,(or time 5000)]))))
 
+(defvar movie--overlay-removal nil)
+
 (defun movie--overlay-card (file width height)
   (movie-send-mpv-command
    `((command . ["overlay-add"
 		 0 0 0 ,file 0 "bgra"
 		 ,width ,height ,(* width 4)])))
-  (run-at-time 5 nil
-	       (lambda ()
-		 (movie-send-mpv-command
-		  `((command . ["overlay-remove" 0]))))))
+  (when movie--overlay-removal
+    (cancel-timer movie--overlay-removal))
+  (setq movie--overlay-removal
+	(run-at-time 5 nil
+		     (lambda ()
+		       (movie-send-mpv-command
+			`((command . ["overlay-remove" 0])))))))
 
 (defun movie-query-and-display ()
   "Query an LLM about the actor currently on the screen."
@@ -2527,43 +2539,55 @@ output directories whose names match REGEXP."
     (cancel-timer movie--actor-timer))
   (let* ((movie (movie--file-title movie--file-currently-playing))
 	 (is-movie (file-exists-p
-		    (expand-file-name "stats" (file-name-directory movie))))
+		    (expand-file-name
+		     "stats" (file-name-directory
+			      movie--file-currently-playing))))
 	 (old-files (directory-files movie-recording-directory t))
+	 (times 300)
 	 func)
     (setq func
 	  (lambda ()
+	    ;; Check whether the screenshot has arrived.
 	    (let ((new (seq-difference
 			(directory-files movie-recording-directory t)
 			old-files)))
 	      (if new
 		  (let ((data (movie-query-actor movie (car new) is-movie)))
 		    (movie--create-actor-card data))
-		(setq movie--actor-timer (run-at-time 0.1 nil func))))))
+		(when (> (cl-decf times) 0)
+		  (setq movie--actor-timer (run-at-time 0.1 nil func)))))))
     (movie-send-mpv-command
      `((command . ["screenshot" "video"])))
     (setq movie--actor-timer (run-at-time 0.5 nil func))
     nil))
 
-(defun movie-query-actor (movie image &optional is-movie)
+(defun movie-query-actor (movie image &optional is-movie include-image)
   (message "Querying %s" movie)
   (require 'query-assistant)
-  (let ((text
-	 (concat "What is the name of the character in this "
-		 (if is-movie "movie" "tv series")
-		 " screenshot?  "
-		 "The " (if is-movie "movie" "tv series") " is " movie ". "
-		 "And what's the name of the actor/actreess "
-		 "that portrayed this character in this "
-		 (if is-movie "movie" "tv series")
-		 "?  If you don't recognise the person, say so. "
-		 "Also include the three movies/tv series the actor/actress "
-		 "is most known for (excluding this one). "
-		 "Also include the imdb actor/acress ID. "
-		 "Answer succinctly. "
-		 "Answer in this format: 'ID; Character; Actor/Actress; "
-		 "Most-known'.  Don't include semi-colons in the most-known "
-		 "list, but comma-separate them instead."
-		 ))
+  (let ((type 'gemini)
+	(text
+	 (concat "This is a screenshot from the "
+		 movie " " (if is-movie "movie" "tv series") ". "
+		 "Return a JSON structure that answers the following questions: "
+		 "What's the name of the actor/actress, and what's the name "
+		 "of the character? "
+		 "What's the three movies/tv series the actor/actress "
+		 "is most known for (excluding this one)? "
+		 "What's the IMDB id of the actor? "
+		 (if include-image
+		     (concat
+		      "Also include a base64-encoded JPEG of the actor, no "
+		      "smaller than 600x500px. ")
+		   "")
+		 "Use this format: "
+		 "[{\"actor-name\": \"...\", \"character-name\": \"...\", "
+		 "\"known-for\": [\"...\", ...], \"imdb\": \"...\" "
+		 (if include-image
+		     ", \"image\": \"...\" "
+		   "")
+		 "}] "
+		 "If you don't know, return an empty array.  Return nothing "
+		 "except the JSON."))
 	(data
 	 (with-temp-buffer
 	   (set-buffer-multibyte nil)
@@ -2573,38 +2597,65 @@ output directories whose names match REGEXP."
 	   (base64-encode-region (point-min) (point-max) t)
 	   (buffer-string))))
     ;; Gemini seems to give better results than OpenAI.
-    (if t
-	(query-assistant
-	 'gemini
-	 (vector
-	  (query-assistant--hash
-	   (list "text" text))
-	  (query-assistant--hash
-	   (list "inline_data"
-		 (query-assistant--hash
-		  (list "mime_type" "image/jpeg")
-		  (list "data" data))))))
-      (query-assistant
-       'openai
-       (vector
-	(query-assistant--hash
-	 (list "role" "user")
-	 (list "content"
-	       (vector
-		(query-assistant--hash
-		 (list "type" "input_text")
-		 (list "text" text))
-		(query-assistant--hash
-		 (list "type" "input_image")
-		 (list "image_url"
-		       (concat "data:image/jpg;base64," data)))))))))))
+    (let ((result
+	   (cond
+	    ((eq type 'gemini)
+	     (query-assistant
+	      'gemini
+	      (vector
+	       (query-assistant--hash
+		(list "text" text))
+	       (query-assistant--hash
+		(list "inline_data"
+		      (query-assistant--hash
+		       (list "mime_type" "image/jpeg")
+		       (list "data" data)))))
+	      include-image))
+	    ((eq type 'openai)
+	     (query-assistant
+	      'openai
+	      (vector
+	       (query-assistant--hash
+		(list "role" "user")
+		(list "content"
+		      (vector
+		       (query-assistant--hash
+			(list "type" "input_text")
+			(list "text" text))
+		       (query-assistant--hash
+			(list "type" "input_image")
+			(list "image_url"
+			      (concat "data:image/jpg;base64," data)))))))
+	      include-image))
+	    ((eq type 'claude)
+	     (query-assistant
+	      'claude
+	      (vector
+	       (query-assistant--hash
+		(list "type" "image")
+		(list "source" 
+		      (query-assistant--hash
+		       (list "type" "base64")
+		       (list "media_type" "image/jpeg")
+		       (list "data" data))))		
+	       (query-assistant--hash
+		(list "type" "text")
+		(list "text" text)))
+	      include-image)))))
+      ;; When we're asking for the image, we're doing an async call,
+      ;; so we don't have a result yet.
+      (unless include-image
+	(query-assistant--json-parse-string result)))))
 
 (defun movie--create-actor-card (data)
-  (let ((elems (split-string data ";" nil split-string-default-separators)))
-    (if (= (length elems) 4)
-	(apply #'movie--create-actor-card-1 elems)
-      ;; Didn't recognize anything.
-      (movie--mpv-osd data))))
+  (if (not (zerop (length data)))
+      (movie--create-actor-card-1
+       (gethash "imdb" (elt data 0))
+       (gethash "character-name" (elt data 0))
+       (gethash "actor-name" (elt data 0))
+       (gethash "known-for" (elt data 0)))
+    ;; Didn't recognize anything.
+    (movie--mpv-osd "Didn't recognize any actors")))
 
 (defun movie--display-size (type)
   (with-current-buffer "*mpv*"
@@ -2624,12 +2675,10 @@ output directories whose names match REGEXP."
   (require 'imdb-mode)
   (imdb-initialize)
   ;; Then get the actor image and display that, too.
-  ;; Disabled for now -- it's become very difficult to scrape imdb.com.
-  (when nil
-    (imdb-fetch-profile-picture
-     (imdb-mode-person-id name)
-     (lambda (image)
-       (movie--display-overlay image character name known-for)))))
+  (imdb-fetch-profile-picture
+   pid
+   (lambda (image)
+     (movie--display-overlay image character name known-for))))
 
 (defun movie--display-overlay (image character name known-for)
   (let* ((width (movie--display-size "width"))
@@ -2652,7 +2701,7 @@ output directories whose names match REGEXP."
 		   :width im-width)))
     (cl-loop for (text color) in
 	     (list (list (format "%s (%s)" name character) "white")
-		   (list known-for "grey"))
+		   (list (cl-coerce known-for 'list) "grey"))
 	     do (svg-text svg (format "%s" text)
 			  :font-size font-size
 			  :stroke "black"
@@ -2668,7 +2717,7 @@ output directories whose names match REGEXP."
       (svg-print svg)
       ;; Apparently it SVG conversion doesn't work as well unless
       ;; you write to a file first, so don't use `call-process-region'.
-      (write-region (point-min) (point-max) "/tmp/mpv.svg")
+      (write-region (point-min) (point-max) "/tmp/mpv.svg" nil 'silent)
       (call-process "rsvg-convert" nil nil nil
 		    "--output=/tmp/mpv.png" "/tmp/mpv.svg")
       (call-process "convert" nil nil nil
