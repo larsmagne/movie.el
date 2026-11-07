@@ -1090,7 +1090,7 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 	(let ((process (movie-start-mpv player)))
 	  (set-process-sentinel
 	   process
-	   (lambda (proc _status)
+	   (lambda (_proc _status)
 	     (movie-update-mplayer-position (car (last player)))
 	     (movie-copy-images-higher-than highest dir)
 	     (let ((stats (expand-file-name
@@ -2649,11 +2649,7 @@ output directories whose names match REGEXP."
 
 (defun movie--create-actor-card (data)
   (if (not (zerop (length data)))
-      (movie--create-actor-card-1
-       (gethash "imdb" (elt data 0))
-       (gethash "character-name" (elt data 0))
-       (gethash "actor-name" (elt data 0))
-       (gethash "known-for" (elt data 0)))
+      (movie--create-actor-card-1 data)
     ;; Didn't recognize anything.
     (movie--mpv-osd "Didn't recognize any actors")))
 
@@ -2666,21 +2662,24 @@ output directories whose names match REGEXP."
 		  (string-to-number (match-string 1)))
 	   (string-to-number (match-string 1))))))
 
-(defun movie--create-actor-card-1 (pid character name known-for)
+(defun movie--create-actor-card-1 (data)
   ;; First display the name.
-  (movie--display-overlay nil character name known-for)
-  ;; Sometimes Gemini returns the person id without the "nm".
-  (unless (string-match-p "\\`nm" pid)
-    (setq pid (concat "nm" pid)))
-  (require 'imdb-mode)
-  (imdb-initialize)
-  ;; Then get the actor image and display that, too.
-  (imdb-fetch-profile-picture
-   pid
-   (lambda (image)
-     (movie--display-overlay image character name known-for))))
+  (movie--display-overlay nil data)
+  (let ((pid (gethash "imdb" (elt data 0)))
+	(name (gethash "character-name" (elt data 0))))
+    ;; Sometimes Gemini returns the person id without the "nm".
+    (unless (string-match-p "\\`nm" pid)
+      (setq pid (concat "nm" pid)))
+    (require 'imdb-mode)
+    (imdb-initialize)
+    ;; Then get the actor image and display that, too.
+    (imdb-fetch-profile-picture
+     ;; The LLM frequently returns the wrong PID.
+     (or (imdb-mode-person-id name) pid)
+     (lambda (image)
+       (movie--display-overlay image data)))))
 
-(defun movie--display-overlay (image character name known-for)
+(defun movie--display-overlay (image data)
   (let* ((width (movie--display-size "width"))
 	 (height (movie--display-size "height"))
 	 (screen-width (display-pixel-width))
@@ -2699,20 +2698,25 @@ output directories whose names match REGEXP."
 		   :y 30
 		   :height (/ height 2)
 		   :width im-width)))
-    (cl-loop for (text color) in
-	     (list (list (format "%s (%s)" name character) "white")
-		   (list (cl-coerce known-for 'list) "grey"))
-	     do (svg-text svg (format "%s" text)
-			  :font-size font-size
-			  :stroke "black"
-			  :fill color
-			  :stroke-width 0
-			  :font-weight "bold"
-			  :font-family "Futura"
-			  :y text-start
-			  :x 30
-			  :filter filter)
-	     (cl-incf text-start (* font-size 1.3)))
+    (dolist (entry (cl-coerce data 'list))
+      (let ((name (gethash "actor-name" entry))
+	    (character (gethash "character-name" entry))
+	    (known-for (gethash "known-for" entry)))
+	(cl-loop for (text color) in
+		 (list (list (format "%s (%s)" name character) "white")
+		       (list (string-join known-for ", ") "grey"))
+		 do (svg-text svg (format "%s" text)
+			      :font-size font-size
+			      :stroke "black"
+			      :fill color
+			      :stroke-width 0
+			      :font-weight "bold"
+			      :font-family "Futura"
+			      :y text-start
+			      :x 30
+			      :filter filter)
+		 (cl-incf text-start (* font-size 1.3)))
+	(cl-decf text-start (* font-size 1.3 4))))
     (with-temp-buffer
       (svg-print svg)
       ;; Apparently it SVG conversion doesn't work as well unless
