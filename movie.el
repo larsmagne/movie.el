@@ -2666,12 +2666,13 @@ output directories whose names match REGEXP."
   ;; First display the name.
   (movie--display-overlay nil data)
   (let ((pid (gethash "imdb" (elt data 0)))
-	(name (gethash "character-name" (elt data 0))))
+	(name (gethash "actor-name" (elt data 0))))
     ;; Sometimes Gemini returns the person id without the "nm".
     (unless (string-match-p "\\`nm" pid)
       (setq pid (concat "nm" pid)))
     (require 'imdb-mode)
     (imdb-initialize)
+    ;;(message "Pid is %s; but fetching %s" pid (imdb-mode-person-id name))
     ;; Then get the actor image and display that, too.
     (imdb-fetch-profile-picture
      ;; The LLM frequently returns the wrong PID.
