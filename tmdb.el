@@ -26,7 +26,45 @@
 ;;; Code:
 
 (require 'cl-lib)
-  
+
+(defvar tmdb-read-access-token nil
+  "API read access token from TMDB.")
+
+(defun tmdb-search (name)
+  "Return search results for NAME."
+  (unless tmdb-read-access-token
+    (user-error "`tmdb-read-access-token' has not been set"))
+  (let* ((url-request-extra-headers
+          `(("Connection" . "close")
+            ("Content-Type" ."application/json")
+	    ("Accept" . "application/json")
+	    ("Authorization" . ,(concat "Bearer " tmdb-read-access-token)))))
+    (with-current-buffer (url-retrieve-synchronously
+			  (concat
+			   "https://api.themoviedb.org/3/search/person?query="
+			   (browse-url-encode-url name)))
+      (goto-char (point-min))
+      (unwind-protect
+	  (and (search-forward "\n\n" nil t)
+	       (plist-get (json-parse-buffer :object-type 'plist) :results))
+	(kill-buffer (current-buffer))))))
+
+(defun tmdb-actor-image (name)
+  (cl-loop for elem across (tmdb-search name)
+	   when (equal (plist-get elem :known_for_department) "Acting")
+	   return (let ((image (plist-get elem :profile_path)))
+		    (and (stringp image)
+			 (tmdb--fetch
+			  (concat "https://image.tmdb.org/t/p/h632" image))))))
+
+(defun tmdb--fetch (url)
+  (with-current-buffer (url-retrieve-synchronously url)
+    (goto-char (point-min))
+    (unwind-protect
+	(and (search-forward "\n\n" nil t)
+	     (buffer-substring (point) (point-max)))
+      (kill-buffer (current-buffer)))))
+
 (provide 'tmdb)
 
 ;;; tmdb.el ends here
