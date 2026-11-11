@@ -981,6 +981,11 @@ If INCLUDE-DIRECTORIES, also include directories that have matching names."
 (defun movie-record-gif ()
   "Start/stop recording an animation."
   (interactive)
+  (movie--mpv-osd (format "%s animation recording"
+			  (if movie-anim-state
+			      "Stopping"
+			    "Starting"))
+		  1000)
   (movie-send-mpv-command
    `((command . ["set"
 		 "screenshot-template"
